@@ -91,6 +91,18 @@ $odcaCGMsgCount_DailyRecon_sFTP_User = "dcpxfr"
 $odcaCGMsgCount_DailyRecon_sFTP_Host = "eservices.customs.hksarg"
 $odcaCGMsgCount_DailyRecon_sFTP_Remote = "CTB/"
 
+$BAD006_LogDirectory = "$intfRoot\BAD006\Log"
+$BAD006_WorkDirectory = "$intfRoot\BAD006\Work"
+$BAD006_OutputDirectory = "$intfRoot\BAD006\Out"
+$BAD006_SFTPSourceDirectory = $BAD006_OutputDirectory
+$BAD006_FromDate = "20260101"
+$BAD006_ToDate = "20260301"
+$BAD006_SFTP_Cert = "$intfRoot\BAD006\sftp\prd-dcs-to-scg-gcg.ppk"
+$BAD006_SFTP_Port = "10023"
+$BAD006_SFTP_User = "dcpxfr"
+$BAD006_SFTP_Host = "eservices.customs.hksarg"
+$BAD006_SFTP_Remote = "CTB/"
+
 $dcs_daily_job_dcs_purge_rep_script = "dcs_purge_rep\dcs_purge_rep.ps1"
 $dcs_daily_job_dcs_purge_tx_log_rep_script = "dcs_purge_tx_log_rep\dcs_purge_tx_log_rep.ps1"
 $dcs_daily_job_odca_gen_rep_script = "odca_gen_rep\odca_gen_rep.ps1"
