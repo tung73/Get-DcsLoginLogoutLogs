@@ -234,7 +234,7 @@ Function SqlExportLoginOutText
             $userId = $reader.GetValue(1).ToString()
             $action = $reader.GetValue(2).ToString()
 
-            $streamWriter.WriteLine("{0} [{1}] [{2}]" -f $loginOutDate, $userId, $action)
+            $streamWriter.WriteLine(("{0} [{1}] [{2}]" -f $loginOutDate, $userId, $action))
         }
 
         return 0
