@@ -374,19 +374,81 @@ Function SendDirectoryBySFTP
     return $allSucceeded
 }
 
+Function GetBatchParmValue
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$JobName,
+        [Parameter(Mandatory=$true)][string]$CtrlKey
+    )
+
+    $escapedJobName = $JobName -replace "'", "''"
+    $escapedCtrlKey = $CtrlKey -replace "'", "''"
+    $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
+
+    if ($null -eq $result -or $result.Rows.Count -eq 0) {
+        $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_TBL WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
+    }
+
+    if ($null -eq $result -or $result.Rows.Count -eq 0) {
+        Log "Batch parameter [$CtrlKey] not found for job [$JobName] in SYS_BATCH_PARM_VW or SYS_BATCH_PARM_TBL."
+        return $null
+    }
+
+    $value = $result.Rows[0][0]
+
+    if ($null -eq $value -or $value -eq [System.DBNull]::Value) {
+        Log "Batch parameter [$CtrlKey] for job [$JobName] is empty."
+        return $null
+    }
+
+    return $value.ToString().Trim()
+}
+
+Function Test-JobHostMatch
+{
+    Param([Parameter(Mandatory=$true)][string]$Owner)
+
+    $hostName = $env:COMPUTERNAME
+
+    if ([string]::Equals($hostName, $Owner, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    if ($Owner.StartsWith("$hostName.", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    if ($hostName.StartsWith("$Owner.", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    return $false
+}
+
 Function IsActiveJob
 {
     Param([Parameter(Mandatory=$true)][string]$JobName)
 
     try {
-        $status = GetBatchStatus $JobName
-        $isOwner = IsJobOwner $JobName
+        $enabled = GetBatchParmValue $JobName "ENABLE"
 
-        if ($isOwner -eq $true -and $status -ne "D" -and $status -ne "S") {
-            return $true
+        if ($enabled -ne "Y") {
+            Log "Job [$JobName] is not enabled. ENABLE=[$enabled]"
+            return $false
         }
 
-        return $false
+        $status = GetBatchStatus $JobName
+
+        if ($status -eq "D" -or $status -eq "S") {
+            Log "Job [$JobName] has inactive status [$status]."
+            return $false
+        }
+
+        if (-not (IsJobOwner $JobName)) {
+            return $false
+        }
+
+        return $true
     }
     catch {
         Log $_.Exception.Message
@@ -399,20 +461,17 @@ Function IsJobOwner
     Param([Parameter(Mandatory=$true)][string]$JobName)
 
     try {
-        $escapedJobName = $JobName -replace "'", "''"
-        $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = 'JOB_OWNER'"
+        $owner = GetBatchParmValue $JobName "JOB_OWNER"
 
-        if ($null -eq $result -or $result.Rows.Count -eq 0) {
+        if ($null -eq $owner) {
             return $false
         }
 
-        $owner = $result.Rows[0]["VAL"].ToString()
-
-        if ($env:computername -eq $owner) {
+        if (Test-JobHostMatch $owner) {
             return $true
         }
 
-        Log "Host not match. Host: $env:computername  Owner: $owner"
+        Log "Host not match. Host: $env:COMPUTERNAME  Owner: $owner"
         return $false
     }
     catch {
