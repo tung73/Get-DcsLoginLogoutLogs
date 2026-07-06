@@ -71,7 +71,7 @@ Function Sql
         $dataSet = New-Object System.Data.DataSet
         $adapter.Fill($dataSet) | Out-Null
 
-        return $dataSet.Tables[0]
+        return ,$dataSet.Tables[0]
     }
     catch {
         Log $_.Exception.Message
@@ -114,7 +114,7 @@ Function SqlSP
         $dataSet = New-Object System.Data.DataSet
         $adapter.Fill($dataSet) | Out-Null
 
-        return $dataSet.Tables[0]
+        return ,$dataSet.Tables[0]
     }
     catch {
         Log $_.Exception.Message
@@ -374,15 +374,48 @@ Function SendDirectoryBySFTP
     return $allSucceeded
 }
 
-Function Test-DataTableHasRows
+Function Test-SqlResultHasRows
 {
-    Param([System.Data.DataTable]$Table)
+    Param($Result)
 
-    if ($null -eq $Table) {
+    if ($null -eq $Result) {
         return $false
     }
 
-    return $Table.Select().Length -gt 0
+    if ($Result -is [System.Data.DataRow]) {
+        return $true
+    }
+
+    if ($Result -is [System.Data.DataTable]) {
+        return $Result.Select().Length -gt 0
+    }
+
+    return $false
+}
+
+Function Get-SqlResultScalar
+{
+    Param($Result)
+
+    if ($null -eq $Result) {
+        return $null
+    }
+
+    if ($Result -is [System.Data.DataRow]) {
+        return $Result[0]
+    }
+
+    if ($Result -is [System.Data.DataTable]) {
+        $rows = $Result.Select()
+
+        if ($rows.Length -eq 0) {
+            return $null
+        }
+
+        return $rows[0][0]
+    }
+
+    return $null
 }
 
 Function GetBatchParmValue
@@ -396,16 +429,16 @@ Function GetBatchParmValue
     $escapedCtrlKey = $CtrlKey -replace "'", "''"
     $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
 
-    if (-not (Test-DataTableHasRows $result)) {
+    if (-not (Test-SqlResultHasRows $result)) {
         $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_TBL WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
     }
 
-    if (-not (Test-DataTableHasRows $result)) {
+    if (-not (Test-SqlResultHasRows $result)) {
         Log "Batch parameter [$CtrlKey] not found for job [$JobName] in SYS_BATCH_PARM_VW or SYS_BATCH_PARM_TBL."
         return $null
     }
 
-    $value = $result.Select()[0][0]
+    $value = Get-SqlResultScalar $result
 
     if ($null -eq $value -or $value -eq [System.DBNull]::Value) {
         Log "Batch parameter [$CtrlKey] for job [$JobName] is empty."
