@@ -2,8 +2,9 @@
 #
 # File Name:           BAD006.ps1
 #
-# Purpose:             Export SYS_USER_LOGIN_TBL rows by LAST_UPD_DT range,
-#                      zip the CSV/TXT outputs, and send files by SFTP.
+# Purpose:             Export SYS_USER_LOGIN_TBL login/logout rows by
+#                      LAST_UPD_DT range, zip the TXT output, and send files
+#                      by SFTP.
 #
 #*****************************************************************************
 
@@ -25,7 +26,7 @@ if (-not (Test-Path (Join-Path $common "config.ps1"))) {
 
 $jobName = $me
 $runTimestamp = Get-Date -Format "yyyyMMddHHmmss"
-$logFile = Join-Path $BAD006_LogDirectory ("{0}.{1}.log" -f $jobName, $runTimestamp)
+$logFile = Join-Path $BAD006_LogDirectory ("DCS_Batch_{0}" -f (Get-Date -Format "yyyyMMdd"))
 
 try {
     EnsureDirectory $BAD006_LogDirectory
@@ -54,16 +55,10 @@ try {
     Log "Exporting SYS_USER_LOGIN_TBL where LAST_UPD_DT is from $fromDateText to $toDateText inclusive"
 
     $baseFileName = "DCS_LOGIN_{0}_to_{1}_{2}" -f $fromDateText, $toDateText, $runTimestamp
-    $csvFileName = "$baseFileName.csv"
     $txtFileName = "$baseFileName.txt"
     $zipFileName = "DCS_LOGIN_{0}_to_{1}_{2}.zip" -f $fromDateText, $toDateText, $runTimestamp
-    $csvPath = Join-Path $BAD006_WorkDirectory $csvFileName
     $txtPath = Join-Path $BAD006_WorkDirectory $txtFileName
     $zipPath = Join-Path $BAD006_OutputDirectory $zipFileName
-
-    if (Test-Path $csvPath) {
-        Remove-Item $csvPath -Force
-    }
 
     if (Test-Path $txtPath) {
         Remove-Item $txtPath -Force
@@ -72,22 +67,6 @@ try {
     if (Test-Path $zipPath) {
         Remove-Item $zipPath -Force
     }
-
-    $sql = @"
-SELECT *
-FROM SYS_USER_LOGIN_TBL
-WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
-  AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
-ORDER BY LAST_UPD_DT
-"@
-
-    $exportResult = SqlExportToCSV $sql $csvPath
-
-    if ($exportResult -ne 0) {
-        throw "Failed to export SYS_USER_LOGIN_TBL to CSV."
-    }
-
-    Log "CSV generated: $csvPath"
 
     $txtSql = @"
 SELECT FORMAT([Login/out date], 'yyyy-MM-dd HH:mm:ss,fff') AS [Login/out date],
@@ -101,14 +80,21 @@ FROM (
     WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
       AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
       AND LOGIN_DT IS NOT NULL
+      AND LOWER(USER_ID) NOT LIKE '%uat%'
     UNION ALL
-    SELECT LOGOUT_DT AS [Login/out date],
-           USER_ID,
+    SELECT logoutEvents.LOGOUT_DT AS [Login/out date],
+           logoutEvents.USER_ID,
            'logout' AS [Action]
-    FROM SYS_USER_LOGIN_TBL
-    WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
-      AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
-      AND LOGOUT_DT IS NOT NULL
+    FROM (
+        SELECT USER_ID,
+               LOGOUT_DT
+        FROM SYS_USER_LOGIN_TBL
+        WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
+          AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
+          AND LOGOUT_DT IS NOT NULL
+          AND LOWER(USER_ID) NOT LIKE '%uat%'
+        GROUP BY USER_ID, LOGOUT_DT
+    ) logoutEvents
 ) loginEvents
 ORDER BY [Login/out date], USER_ID, [Action]
 "@
@@ -121,7 +107,7 @@ ORDER BY [Login/out date], USER_ID, [Action]
 
     Log "TXT generated: $txtPath"
 
-    $zipResult = ZipFiles @($csvPath, $txtPath) $zipPath
+    $zipResult = ZipFiles @($txtPath) $zipPath
 
     if ($zipResult -ne 0) {
         throw "Failed to create zip file: $zipPath"
