@@ -38,6 +38,7 @@ try {
     EnsureDirectory $BAD006_WorkDirectory
     EnsureDirectory $BAD006_OutputDirectory
     EnsureDirectory $BAD006_SFTPSourceDirectory
+    EnsureDirectory $BAD006_SFTPBackupDirectory
 
     Log "$me start running"
 
@@ -131,7 +132,8 @@ ORDER BY [Login/out date], USER_ID, [Action]
         $BAD006_SFTP_User `
         $BAD006_SFTP_Host `
         $BAD006_SFTP_Remote `
-        $BAD006_SFTPSourceDirectory
+        $BAD006_SFTPSourceDirectory `
+        $BAD006_SFTPBackupDirectory
 
     if ($sendResult -ne $true) {
         Log "One or more files failed to upload by SFTP."

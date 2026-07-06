@@ -311,7 +311,8 @@ Function SendDirectoryBySFTP
         [Parameter(Mandatory=$true)][string]$userName,
         [Parameter(Mandatory=$true)][string]$hostName,
         [Parameter(Mandatory=$true)][string]$destination,
-        [Parameter(Mandatory=$true)][string]$sourceDirectory
+        [Parameter(Mandatory=$true)][string]$sourceDirectory,
+        [Parameter(Mandatory=$true)][string]$backupDirectory
     )
 
     $files = Get-ChildItem -Path $sourceDirectory -File
@@ -321,6 +322,8 @@ Function SendDirectoryBySFTP
         return $true
     }
 
+    EnsureDirectory $backupDirectory
+
     $allSucceeded = $true
 
     foreach ($file in $files) {
@@ -328,6 +331,10 @@ Function SendDirectoryBySFTP
 
         if ($result -eq $true) {
             Log "Success upload: $($file.FullName)"
+
+            $backupPath = Join-Path $backupDirectory $file.Name
+            Move-Item -Path $file.FullName -Destination $backupPath -Force
+            Log "Moved to backup: $backupPath"
         }
         else {
             Log "Fail upload: $($file.FullName)"
