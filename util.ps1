@@ -150,12 +150,27 @@ Function SqlSP
     }
 }
 
+Function Test-UserIdExcludedByRegex
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$userId,
+        [string]$userIdFilterRegex
+    )
+
+    if ([string]::IsNullOrWhiteSpace($userIdFilterRegex)) {
+        return $false
+    }
+
+    return $userId -match $userIdFilterRegex
+}
+
 Function SqlExportLoginOutText
 {
     Param(
         [Parameter(Mandatory=$true)][string]$sqlCommand,
         [Parameter(Mandatory=$true)][string]$exportFileName,
-        [bool]$LogSqlPrint = $true
+        [bool]$LogSqlPrint = $true,
+        [string]$userIdFilterRegex = ""
     )
 
     $streamWriter = $null
@@ -163,6 +178,10 @@ Function SqlExportLoginOutText
     $reader = $null
 
     try {
+        if (-not [string]::IsNullOrWhiteSpace($userIdFilterRegex)) {
+            $null = [regex]::new($userIdFilterRegex)
+        }
+
         $streamWriter = New-Object System.IO.StreamWriter -ArgumentList $exportFileName, $false, ([System.Text.Encoding]::UTF8)
         $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
 
@@ -180,6 +199,10 @@ Function SqlExportLoginOutText
             $loginOutDate = $reader.GetValue(0).ToString()
             $userId = $reader.GetValue(1).ToString()
             $action = $reader.GetValue(2).ToString()
+
+            if (Test-UserIdExcludedByRegex $userId $userIdFilterRegex) {
+                continue
+            }
 
             $streamWriter.WriteLine($loginOutDate + " [" + $userId + "] [" + $action + "]")
         }
