@@ -134,7 +134,9 @@ ORDER BY [Login/out date], USER_ID, [Action]
         $BAD006_SFTPSourceDirectory
 
     if ($sendResult -ne $true) {
-        throw "One or more files failed to upload by SFTP."
+        Log "One or more files failed to upload by SFTP."
+        Log "$me completed with SFTP upload errors"
+        return 1
     }
 
     Log "$me completed"
@@ -142,5 +144,5 @@ ORDER BY [Login/out date], USER_ID, [Action]
 }
 catch {
     Log $_.Exception.Message
-    throw
+    return 1
 }
