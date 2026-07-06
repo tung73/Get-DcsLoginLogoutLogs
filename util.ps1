@@ -374,6 +374,17 @@ Function SendDirectoryBySFTP
     return $allSucceeded
 }
 
+Function Test-DataTableHasRows
+{
+    Param([System.Data.DataTable]$Table)
+
+    if ($null -eq $Table) {
+        return $false
+    }
+
+    return $Table.Select().Length -gt 0
+}
+
 Function GetBatchParmValue
 {
     Param(
@@ -385,16 +396,16 @@ Function GetBatchParmValue
     $escapedCtrlKey = $CtrlKey -replace "'", "''"
     $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
 
-    if ($null -eq $result -or $result.Rows.Count -eq 0) {
+    if (-not (Test-DataTableHasRows $result)) {
         $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_TBL WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
     }
 
-    if ($null -eq $result -or $result.Rows.Count -eq 0) {
+    if (-not (Test-DataTableHasRows $result)) {
         Log "Batch parameter [$CtrlKey] not found for job [$JobName] in SYS_BATCH_PARM_VW or SYS_BATCH_PARM_TBL."
         return $null
     }
 
-    $value = $result.Rows[0][0]
+    $value = $result.Select()[0][0]
 
     if ($null -eq $value -or $value -eq [System.DBNull]::Value) {
         Log "Batch parameter [$CtrlKey] for job [$JobName] is empty."
