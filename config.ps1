@@ -10,6 +10,7 @@ $BAD006_LogDirectory = "$intfRoot\BAD006\Log"
 $BAD006_WorkDirectory = "$intfRoot\BAD006\Work"
 $BAD006_OutputDirectory = "$intfRoot\BAD006\Out"
 $BAD006_SFTPSourceDirectory = $BAD006_OutputDirectory
+$BAD006_SFTPBackupDirectory = "$intfRoot\BAD006\Backup"
 $BAD006_FromDate = "20260101"
 $BAD006_ToDate = "20260301"
 $BAD006_SFTP_Program = "$intfRoot\BAD006\sftp\psftp.exe"
