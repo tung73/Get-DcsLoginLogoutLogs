@@ -224,6 +224,29 @@ Function ZipFiles
     }
 }
 
+Function New-SftpBatchFile
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$destination,
+        [Parameter(Mandatory=$true)][string]$file
+    )
+
+    $batchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("bad006_sftp_{0}.txt" -f [Guid]::NewGuid().ToString())
+    $commands = New-Object System.Collections.Generic.List[string]
+
+    $remoteDirectory = $destination.Trim()
+
+    if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
+        $commands.Add("cd $remoteDirectory")
+    }
+
+    $commands.Add('put "' + $file.Replace('"', '""') + '"')
+    $commands.Add("quit")
+    $commands | Set-Content -Path $batchFile -Encoding ASCII
+
+    return $batchFile
+}
+
 Function sFTPSend
 {
     Param(
@@ -235,30 +258,47 @@ Function sFTPSend
         [Parameter(Mandatory=$true)][string]$file
     )
 
-    $sftpProgram = Join-Path $common "sftp\psftp.exe"
-    $dcsUtilRef = Join-Path $common "sftp\References\DcsUtils.dll"
-    $sftpClient = $null
+    $batchFile = $null
 
     try {
-        Add-Type -Path $dcsUtilRef
-
-        $sftpClient = New-Object DCS.Batch.Utils.SFTPClient($sftpProgram) -Property @{
-            certPath = $certPath
-            port = $port
-            username = $userName
-            hostname = $hostName
+        if (-not (Test-Path $BAD006_SFTP_Program)) {
+            throw "SFTP program not found: $BAD006_SFTP_Program"
         }
 
+        if (-not (Test-Path $certPath)) {
+            throw "SFTP certificate not found: $certPath"
+        }
+
+        if (-not (Test-Path $file)) {
+            throw "SFTP upload file not found: $file"
+        }
+
+        $batchFile = New-SftpBatchFile $destination $file
+        $target = "{0}@{1}" -f $userName, $hostName
+
         Log "SFTP> Upload $file to $hostName"
-        return $sftpClient.Send($destination, $file)
+
+        $output = & $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $batchFile 2>&1
+        $exitCode = $LASTEXITCODE
+
+        if ($output) {
+            Log "SFTP> $output"
+        }
+
+        if ($exitCode -ne 0) {
+            Log "SFTP> Upload failed with exit code $exitCode"
+            return $false
+        }
+
+        return $true
     }
     catch {
         Log $_.Exception.Message
         return $false
     }
     finally {
-        if ($null -ne $sftpClient) {
-            $sftpClient.Dispose()
+        if ($null -ne $batchFile -and (Test-Path $batchFile)) {
+            Remove-Item $batchFile -Force
         }
     }
 }
