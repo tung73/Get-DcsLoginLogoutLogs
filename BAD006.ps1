@@ -94,7 +94,6 @@ FROM (
     WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
       AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
       AND LOGIN_DT IS NOT NULL
-      AND LOWER(USER_ID) NOT LIKE '%uat%'
     UNION ALL
     SELECT logoutEvents.LOGOUT_DT AS [Login/out date],
            logoutEvents.USER_ID,
@@ -106,14 +105,13 @@ FROM (
         WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
           AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
           AND LOGOUT_DT IS NOT NULL
-          AND LOWER(USER_ID) NOT LIKE '%uat%'
         GROUP BY USER_ID, LOGOUT_DT
     ) logoutEvents
 ) loginEvents
 ORDER BY [Login/out date], USER_ID, [Action]
 "@
 
-        $txtExportResult = SqlExportLoginOutText $txtSql $txtPath
+        $txtExportResult = SqlExportLoginOutText $txtSql $txtPath $true $BAD006_UserIdFilterRegex
 
         if ($txtExportResult -ne 0) {
             throw "Failed to export SYS_USER_LOGIN_TBL to TXT."
