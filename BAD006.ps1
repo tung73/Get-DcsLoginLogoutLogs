@@ -31,7 +31,7 @@ else {
     $jobName = $BAD006_JobName.Trim()
 }
 $runTimestamp = Get-Date -Format "yyyyMMddHHmmss"
-$logFile = Join-Path $BAD006_LogDirectory ("DCS_Batch_{0}" -f (Get-Date -Format "yyyyMMdd"))
+$logFile = Join-Path $BAD006_LogDirectory ("DCS_Batch_{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 
 try {
     EnsureDirectory $BAD006_LogDirectory
