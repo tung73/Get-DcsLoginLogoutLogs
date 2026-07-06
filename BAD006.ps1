@@ -24,6 +24,8 @@ if (-not (Test-Path (Join-Path $common "config.ps1"))) {
 . (Join-Path $common "config.ps1")
 . (Join-Path $common "util.ps1")
 
+$configPath = Join-Path $common "config.ps1"
+
 if ([string]::IsNullOrWhiteSpace($BAD006_JobName)) {
     $jobName = $me
 }
@@ -47,34 +49,40 @@ try {
         return 0
     }
 
-    $fromDate = ParseConfigDate $BAD006_FromDate "BAD006_FromDate"
-    $toDate = ParseConfigDate $BAD006_ToDate "BAD006_ToDate"
+    $skipGenerate = [string]::IsNullOrWhiteSpace($BAD006_FromDate) -or [string]::IsNullOrWhiteSpace($BAD006_ToDate)
 
-    if ($fromDate -gt $toDate) {
-        throw "BAD006_FromDate must be earlier than or equal to BAD006_ToDate."
+    if ($skipGenerate) {
+        Log "BAD006_FromDate or BAD006_ToDate is empty. Skipping file generation."
     }
+    else {
+        $fromDate = ParseConfigDate $BAD006_FromDate "BAD006_FromDate"
+        $toDate = ParseConfigDate $BAD006_ToDate "BAD006_ToDate"
 
-    $fromDateText = $fromDate.ToString("yyyyMMdd")
-    $toDateText = $toDate.ToString("yyyyMMdd")
-    $toDateExclusiveText = $toDate.AddDays(1).ToString("yyyyMMdd")
+        if ($fromDate -gt $toDate) {
+            throw "BAD006_FromDate must be earlier than or equal to BAD006_ToDate."
+        }
 
-    Log "Exporting SYS_USER_LOGIN_TBL where LAST_UPD_DT is from $fromDateText to $toDateText inclusive"
+        $fromDateText = $fromDate.ToString("yyyyMMdd")
+        $toDateText = $toDate.ToString("yyyyMMdd")
+        $toDateExclusiveText = $toDate.AddDays(1).ToString("yyyyMMdd")
 
-    $baseFileName = "DCS_LOGIN_{0}_to_{1}_{2}" -f $fromDateText, $toDateText, $runTimestamp
-    $txtFileName = "$baseFileName.txt"
-    $zipFileName = "DCS_LOGIN_{0}_to_{1}_{2}.zip" -f $fromDateText, $toDateText, $runTimestamp
-    $txtPath = Join-Path $BAD006_WorkDirectory $txtFileName
-    $zipPath = Join-Path $BAD006_OutputDirectory $zipFileName
+        Log "Exporting SYS_USER_LOGIN_TBL where LAST_UPD_DT is from $fromDateText to $toDateText inclusive"
 
-    if (Test-Path $txtPath) {
-        Remove-Item $txtPath -Force
-    }
+        $baseFileName = "DCS_LOGIN_{0}_to_{1}_{2}" -f $fromDateText, $toDateText, $runTimestamp
+        $txtFileName = "$baseFileName.txt"
+        $zipFileName = "DCS_LOGIN_{0}_to_{1}_{2}.zip" -f $fromDateText, $toDateText, $runTimestamp
+        $txtPath = Join-Path $BAD006_WorkDirectory $txtFileName
+        $zipPath = Join-Path $BAD006_OutputDirectory $zipFileName
 
-    if (Test-Path $zipPath) {
-        Remove-Item $zipPath -Force
-    }
+        if (Test-Path $txtPath) {
+            Remove-Item $txtPath -Force
+        }
 
-    $txtSql = @"
+        if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+        }
+
+        $txtSql = @"
 SELECT FORMAT([Login/out date], 'yyyy-MM-dd HH:mm:ss,fff') AS [Login/out date],
        USER_ID,
        [Action]
@@ -105,25 +113,29 @@ FROM (
 ORDER BY [Login/out date], USER_ID, [Action]
 "@
 
-    $txtExportResult = SqlExportLoginOutText $txtSql $txtPath
+        $txtExportResult = SqlExportLoginOutText $txtSql $txtPath
 
-    if ($txtExportResult -ne 0) {
-        throw "Failed to export SYS_USER_LOGIN_TBL to TXT."
-    }
+        if ($txtExportResult -ne 0) {
+            throw "Failed to export SYS_USER_LOGIN_TBL to TXT."
+        }
 
-    Log "TXT generated: $txtPath"
+        Log "TXT generated: $txtPath"
 
-    $zipResult = ZipFiles @($txtPath) $zipPath
+        $zipResult = ZipFiles @($txtPath) $zipPath
 
-    if ($zipResult -ne 0) {
-        throw "Failed to create zip file: $zipPath"
-    }
+        if ($zipResult -ne 0) {
+            throw "Failed to create zip file: $zipPath"
+        }
 
-    Log "Zip generated: $zipPath"
+        Log "Zip generated: $zipPath"
 
-    if ($BAD006_SFTPSourceDirectory -ne $BAD006_OutputDirectory) {
-        Copy-Item $zipPath (Join-Path $BAD006_SFTPSourceDirectory $zipFileName) -Force
-        Log "Zip copied to SFTP source directory: $BAD006_SFTPSourceDirectory"
+        if ($BAD006_SFTPSourceDirectory -ne $BAD006_OutputDirectory) {
+            Copy-Item $zipPath (Join-Path $BAD006_SFTPSourceDirectory $zipFileName) -Force
+            Log "Zip copied to SFTP source directory: $BAD006_SFTPSourceDirectory"
+        }
+
+        Clear-Bad006DateRangeConfig $configPath
+        Log "Cleared BAD006_FromDate and BAD006_ToDate in config."
     }
 
     $sendResult = SendDirectoryBySFTP `

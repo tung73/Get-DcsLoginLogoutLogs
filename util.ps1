@@ -48,6 +48,29 @@ Function ParseConfigDate
     throw "$configName must be in yyyyMMdd or yyyy-MM-dd format. Current value: $dateText"
 }
 
+Function Clear-Bad006DateRangeConfig
+{
+    Param([Parameter(Mandatory=$true)][string]$configPath)
+
+    if (-not (Test-Path $configPath)) {
+        throw "Config file not found: $configPath"
+    }
+
+    $updatedLines = Get-Content -Path $configPath | ForEach-Object {
+        if ($_ -match '^\$BAD006_FromDate\s*=') {
+            return '$BAD006_FromDate = ""'
+        }
+
+        if ($_ -match '^\$BAD006_ToDate\s*=') {
+            return '$BAD006_ToDate = ""'
+        }
+
+        return $_
+    }
+
+    $updatedLines | Set-Content -Path $configPath
+}
+
 Function Sql
 {
     Param(
