@@ -15,7 +15,7 @@ This repo is the **BAD006** batch job (`Get-DcsLoginLogoutLogs`): a Windows **Po
 
 ### Important environment caveats (production-only dependencies)
 - `config.ps1` targets an **internal HK Customs production** SQL Server (`prd.db.dcs.customs.hksarg`) and SFTP host (`eservices.customs.hksarg`) using **Windows paths** (`O:\Batch`, UNC shares). None of these are reachable from the cloud VM.
-- The SFTP step (`sFTPSend` / `SendDirectoryBySFTP`) shells out to Windows-only `sftp\psftp.exe` and loads `sftp\References\DcsUtils.dll` — neither is in the repo, so **SFTP cannot run on Linux**.
+- The SFTP step (`sFTPSend` / `SendDirectoryBySFTP`) shells out to Windows-only `psftp.exe` configured by `BAD006_SFTP_Program` in `config.ps1`. It is not in the repo, so **SFTP cannot run on Linux**.
 - Therefore running `BAD006.ps1` unmodified end-to-end will fail in this env (Windows paths + batch-status gating via `SYS_BATCH_PARM_VW` / `Batch_GetJobStatus` + SFTP). Do **not** treat that as a regression.
 
 ### How to exercise the core export pipeline locally

@@ -11,6 +11,7 @@ $BAD006_OutputDirectory = "$intfRoot\BAD006\Out"
 $BAD006_SFTPSourceDirectory = $BAD006_OutputDirectory
 $BAD006_FromDate = "20260101"
 $BAD006_ToDate = "20260301"
+$BAD006_SFTP_Program = "$intfRoot\BAD006\sftp\psftp.exe"
 $BAD006_SFTP_Cert = "$intfRoot\BAD006\sftp\prd-dcs-to-scg-gcg.ppk"
 $BAD006_SFTP_Port = "10023"
 $BAD006_SFTP_User = "dcpxfr"
