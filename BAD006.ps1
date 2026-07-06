@@ -24,7 +24,12 @@ if (-not (Test-Path (Join-Path $common "config.ps1"))) {
 . (Join-Path $common "config.ps1")
 . (Join-Path $common "util.ps1")
 
-$jobName = $me
+if ([string]::IsNullOrWhiteSpace($BAD006_JobName)) {
+    $jobName = $me
+}
+else {
+    $jobName = $BAD006_JobName.Trim()
+}
 $runTimestamp = Get-Date -Format "yyyyMMddHHmmss"
 $logFile = Join-Path $BAD006_LogDirectory ("DCS_Batch_{0}" -f (Get-Date -Format "yyyyMMdd"))
 

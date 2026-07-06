@@ -5,6 +5,7 @@ $connectionString = "Data Source=prd.db.dcs.customs.hksarg\DCINDP,11433;Initial 
 
 $intfRoot = "O:\Batch"
 
+$BAD006_JobName = "BAD006"
 $BAD006_LogDirectory = "$intfRoot\BAD006\Log"
 $BAD006_WorkDirectory = "$intfRoot\BAD006\Work"
 $BAD006_OutputDirectory = "$intfRoot\BAD006\Out"
