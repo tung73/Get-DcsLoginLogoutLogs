@@ -129,6 +129,11 @@ ORDER BY [Login/out date], USER_ID, [Action]
 
         Log "Zip generated: $zipPath"
 
+        if (Test-Path $txtPath) {
+            Remove-Item $txtPath -Force
+            Log "Removed work file: $txtPath"
+        }
+
         if ($BAD006_SFTPSourceDirectory -ne $BAD006_OutputDirectory) {
             Copy-Item $zipPath (Join-Path $BAD006_SFTPSourceDirectory $zipFileName) -Force
             Log "Zip copied to SFTP source directory: $BAD006_SFTPSourceDirectory"
