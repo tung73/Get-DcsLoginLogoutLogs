@@ -7,8 +7,9 @@
 #*****************************************************************************
 
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
-    param($sender, $event)
-    Log "$event"
+    param($sqlSender, $sqlEvent)
+    $null = $sqlSender
+    Log "$sqlEvent"
 }
 
 Function Log
@@ -77,7 +78,7 @@ Function Sql
         return $null
     }
     finally {
-        if ($connection -ne $null) {
+        if ($null -ne $connection) {
             $connection.Close()
         }
     }
@@ -102,7 +103,7 @@ Function SqlSP
 
         $command = New-Object System.Data.SqlClient.SqlCommand($sqlCommand, $connection)
 
-        if ($sqlParm -ne $null) {
+        if ($null -ne $sqlParm) {
             $command.Parameters.AddRange($sqlParm)
         }
 
@@ -120,7 +121,7 @@ Function SqlSP
         return $null
     }
     finally {
-        if ($connection -ne $null) {
+        if ($null -ne $connection) {
             $connection.Close()
         }
     }
@@ -130,7 +131,7 @@ Function FormatCsvValue
 {
     Param([object]$value)
 
-    if ($value -eq $null -or $value -eq [System.DBNull]::Value) {
+    if ($null -eq $value -or $value -eq [System.DBNull]::Value) {
         return '""'
     }
 
@@ -188,15 +189,70 @@ Function SqlExportToCSV
         return 1
     }
     finally {
-        if ($reader -ne $null) {
+        if ($null -ne $reader) {
             $reader.Close()
         }
 
-        if ($connection -ne $null) {
+        if ($null -ne $connection) {
             $connection.Close()
         }
 
-        if ($streamWriter -ne $null) {
+        if ($null -ne $streamWriter) {
+            $streamWriter.Close()
+        }
+    }
+}
+
+Function SqlExportLoginOutText
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$sqlCommand,
+        [Parameter(Mandatory=$true)][string]$exportFileName,
+        [bool]$LogSqlPrint = $true
+    )
+
+    $streamWriter = $null
+    $connection = $null
+    $reader = $null
+
+    try {
+        $streamWriter = New-Object System.IO.StreamWriter -ArgumentList $exportFileName, $false, ([System.Text.Encoding]::UTF8)
+        $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+
+        if ($LogSqlPrint) {
+            $connection.add_InfoMessage($SqlPrintOutHandler)
+        }
+
+        $command = New-Object System.Data.SqlClient.SqlCommand($sqlCommand, $connection)
+        $connection.Open()
+        $reader = $command.ExecuteReader()
+
+        $streamWriter.WriteLine("[Login/out date] [USER_ID] [Action]")
+
+        while ($reader.Read()) {
+            $loginOutDate = $reader.GetValue(0).ToString()
+            $userId = $reader.GetValue(1).ToString()
+            $action = $reader.GetValue(2).ToString()
+
+            $streamWriter.WriteLine("{0} [{1}] [{2}]" -f $loginOutDate, $userId, $action)
+        }
+
+        return 0
+    }
+    catch {
+        Log $_.Exception.Message
+        return 1
+    }
+    finally {
+        if ($null -ne $reader) {
+            $reader.Close()
+        }
+
+        if ($null -ne $connection) {
+            $connection.Close()
+        }
+
+        if ($null -ne $streamWriter) {
             $streamWriter.Close()
         }
     }
@@ -238,7 +294,7 @@ Function ZipFiles
         return 1
     }
     finally {
-        if ($archive -ne $null) {
+        if ($null -ne $archive) {
             $archive.Dispose()
         }
     }
@@ -277,7 +333,7 @@ Function sFTPSend
         return $false
     }
     finally {
-        if ($sftpClient -ne $null) {
+        if ($null -ne $sftpClient) {
             $sftpClient.Dispose()
         }
     }
@@ -346,7 +402,7 @@ Function IsJobOwner
         $escapedJobName = $JobName -replace "'", "''"
         $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = 'JOB_OWNER'"
 
-        if ($result -eq $null -or $result.Rows.Count -eq 0) {
+        if ($null -eq $result -or $result.Rows.Count -eq 0) {
             return $false
         }
 
