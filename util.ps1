@@ -6,7 +6,7 @@
 #
 #*****************************************************************************
 
-$BAD006_UtilVersion = "2026-07-07-sftp-native-capture"
+$BAD006_UtilVersion = "2026-07-07-sftp-erroraction-capture"
 
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
@@ -325,6 +325,7 @@ Function Invoke-Psftp
 
     $restoreNativeCommandPreference = $false
     $previousNativeCommandPreference = $null
+    $previousErrorActionPreference = $ErrorActionPreference
 
     if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
         $restoreNativeCommandPreference = $true
@@ -333,6 +334,8 @@ Function Invoke-Psftp
     }
 
     try {
+        $ErrorActionPreference = "Continue"
+
         $output = @(& $BAD006_SFTP_Program @arguments 2>&1)
         $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
         $outputLines = @($output | ForEach-Object { "$_" })
@@ -344,6 +347,8 @@ Function Invoke-Psftp
         }
     }
     finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+
         if ($restoreNativeCommandPreference) {
             $PSNativeCommandUseErrorActionPreference = $previousNativeCommandPreference
         }
