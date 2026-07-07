@@ -13,20 +13,24 @@ Describe 'Invoke-Psftp' {
     It 'captures native command output and non-zero exit code without throwing' {
         $originalProgram = $global:BAD006_SFTP_Program
         $originalNativePreference = $PSNativeCommandUseErrorActionPreference
+        $originalErrorActionPreference = $ErrorActionPreference
 
         try {
             $global:BAD006_SFTP_Program = 'pwsh'
+            $ErrorActionPreference = 'Stop'
             $PSNativeCommandUseErrorActionPreference = $true
 
-            $result = Invoke-Psftp -arguments @('-NoProfile', '-Command', 'Write-Output "Using username `"uat_sftp_log_dcs01`"."; exit 2')
+            $result = Invoke-Psftp -arguments @('-NoProfile', '-Command', '[Console]::Error.WriteLine("Using username `"uat_sftp_log_dcs01`"."); exit 2')
 
             $result.ExitCode | Should -Be 2
             $result.OutputText | Should -Match 'Using username'
             $PSNativeCommandUseErrorActionPreference | Should -Be $true
+            $ErrorActionPreference | Should -Be 'Stop'
         }
         finally {
             $global:BAD006_SFTP_Program = $originalProgram
             $PSNativeCommandUseErrorActionPreference = $originalNativePreference
+            $ErrorActionPreference = $originalErrorActionPreference
         }
     }
 }
