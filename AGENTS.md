@@ -3,7 +3,7 @@
 ## Cursor Cloud specific instructions
 
 ### What this is
-This repo is the **BAD006** batch job (`Get-DcsLoginLogoutLogs`): a Windows **PowerShell** job that exports `SYS_USER_LOGIN_TBL` login/logout rows from a SQL Server by `LAST_UPD_DT` range, writes a TXT output, zips it, and uploads the zip via SFTP. It excludes `USER_ID` values matching `BAD006_UserIdFilterRegex` and de-duplicates logout rows with the same user/time. It is not a service — it is a one-shot script. Files: `BAD006.ps1` (entry point), `util.ps1` (functions), `config.ps1` (paths/connection/SFTP settings), `README.md`.
+This repo is the **BAD006** batch job (`Get-DcsLoginLogoutLogs`): a Windows **PowerShell** job that exports `SYS_USER_LOGIN_TBL` login/logout rows from a SQL Server by login/logout event date (`LOGIN_DT` / `LOGOUT_DT`) range, writes a TXT output, zips it, and uploads the zip via SFTP. It excludes `USER_ID` values matching `BAD006_UserIdFilterRegex` and de-duplicates logout rows with the same user/time. It is not a service — it is a one-shot script. Files: `BAD006.ps1` (entry point), `util.ps1` (functions), `config.ps1` (paths/connection/SFTP settings), `README.md`.
 
 ### Runtime
 - PowerShell 7 (`pwsh`) is installed in the VM snapshot. `System.Data.SqlClient` (used by `util.ps1`) is available under `pwsh`.
