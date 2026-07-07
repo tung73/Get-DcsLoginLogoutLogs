@@ -6,8 +6,6 @@
 #
 #*****************************************************************************
 
-$BAD006_UtilVersion = "2026-07-07-phase1-util-cleanup"
-
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
     $null = $sqlSender

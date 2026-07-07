@@ -2,9 +2,18 @@
 #
 # File Name:           BAD006.ps1
 #
-# Purpose:             Export SYS_USER_LOGIN_TBL login/logout rows by
-#                      LAST_UPD_DT range, zip the TXT output, and send files
-#                      by SFTP.
+# Job Name:            BAD006
+# Version:             1.0.0
+#
+# Purpose:             Export DCS user login/logout audit records from
+#                      SYS_USER_LOGIN_TBL for a configured LAST_UPD_DT date
+#                      range. The job writes a formatted TXT file, compresses it
+#                      into a DCS_LOGIN zip file, uploads pending zip files by
+#                      SFTP, and moves successfully uploaded files to backup.
+#
+# Notes:               BAD006_FromDate and BAD006_ToDate are one-time control
+#                      values. When both dates are empty, file generation is
+#                      skipped but SFTP still runs for pending files.
 #
 #*****************************************************************************
 
@@ -29,12 +38,6 @@ $utilPath = Join-Path $common "util.ps1"
 . $configPath
 . $utilPath
 
-# The utility version is logged at startup so deployment issues are visible
-# immediately (for example, when an older Common\util.ps1 is loaded).
-if ([string]::IsNullOrWhiteSpace($BAD006_UtilVersion)) {
-    $BAD006_UtilVersion = "unknown"
-}
-
 if ([string]::IsNullOrWhiteSpace($BAD006_JobName)) {
     $jobName = $me
 }
@@ -54,7 +57,6 @@ try {
     Log "$me start running"
     Log "Loaded config: $configPath"
     Log "Loaded util: $utilPath"
-    Log "Loaded util version: $BAD006_UtilVersion"
 
     if ((IsActiveJob $jobName) -ne $true) {
         Log "Job [$jobName] is inactive. Script [$me] is terminated."
