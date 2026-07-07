@@ -11,7 +11,7 @@
 #                      into a DCS_LOGIN zip file, uploads pending zip files by
 #                      SFTP, and moves successfully uploaded files to backup.
 #
-# Notes:               BAD006_FromDate and BAD006_ToDate are one-time control
+# Notes:               FromDate and ToDate are one-time control
 #                      values. When both dates are empty, file generation is
 #                      skipped but SFTP still runs for pending files.
 #
@@ -50,21 +50,21 @@ $utilPath = Join-Path $common "util.ps1"
 . $configPath
 . $utilPath
 
-if ([string]::IsNullOrWhiteSpace($BAD006_JobName)) {
+if ([string]::IsNullOrWhiteSpace($BatchJobName)) {
     $jobName = $me
 }
 else {
-    $jobName = $BAD006_JobName.Trim()
+    $jobName = $BatchJobName.Trim()
 }
 $runTimestamp = Get-Date -Format "yyyyMMddHHmmss"
-$logFile = Join-Path $BAD006_LogDirectory ("DCS_Batch_{0}.log" -f (Get-Date -Format "yyyyMMdd"))
+$logFile = Join-Path $LogDirectory ("DCS_Batch_{0}.log" -f (Get-Date -Format "yyyyMMdd"))
 
 try {
-    EnsureDirectory $BAD006_LogDirectory
-    EnsureDirectory $BAD006_WorkDirectory
-    EnsureDirectory $BAD006_OutputDirectory
-    EnsureDirectory $BAD006_SFTPSourceDirectory
-    EnsureDirectory $BAD006_SFTPBackupDirectory
+    EnsureDirectory $LogDirectory
+    EnsureDirectory $WorkDirectory
+    EnsureDirectory $OutputDirectory
+    EnsureDirectory $SFTPSourceDirectory
+    EnsureDirectory $SFTPBackupDirectory
 
     Log "$me start running"
     Log "Loaded config: $configPath"
@@ -75,19 +75,19 @@ try {
         return 0
     }
 
-    $skipGenerate = [string]::IsNullOrWhiteSpace($BAD006_FromDate) -or [string]::IsNullOrWhiteSpace($BAD006_ToDate)
+    $skipGenerate = [string]::IsNullOrWhiteSpace($FromDate) -or [string]::IsNullOrWhiteSpace($ToDate)
 
     # Empty dates intentionally skip export generation but still allow the SFTP
     # step to send any files that are already waiting in the source directory.
     if ($skipGenerate) {
-        Log "BAD006_FromDate or BAD006_ToDate is empty. Skipping file generation."
+        Log "FromDate or ToDate is empty. Skipping file generation."
     }
     else {
-        $fromDate = ParseConfigDate $BAD006_FromDate "BAD006_FromDate"
-        $toDate = ParseConfigDate $BAD006_ToDate "BAD006_ToDate"
+        $fromDate = ParseConfigDate $FromDate "FromDate"
+        $toDate = ParseConfigDate $ToDate "ToDate"
 
         if ($fromDate -gt $toDate) {
-            throw "BAD006_FromDate must be earlier than or equal to BAD006_ToDate."
+            throw "FromDate must be earlier than or equal to ToDate."
         }
 
         $fromDateText = $fromDate.ToString("yyyyMMdd")
@@ -99,8 +99,8 @@ try {
         $baseFileName = "DCS_LOGIN_{0}_to_{1}_{2}" -f $fromDateText, $toDateText, $runTimestamp
         $txtFileName = "$baseFileName.txt"
         $zipFileName = "DCS_LOGIN_{0}_to_{1}_{2}.zip" -f $fromDateText, $toDateText, $runTimestamp
-        $txtPath = Join-Path $BAD006_WorkDirectory $txtFileName
-        $zipPath = Join-Path $BAD006_OutputDirectory $zipFileName
+        $txtPath = Join-Path $WorkDirectory $txtFileName
+        $zipPath = Join-Path $OutputDirectory $zipFileName
 
         if (Test-Path $txtPath) {
             Remove-Item $txtPath -Force
@@ -139,7 +139,7 @@ FROM (
 ORDER BY [Login/out date], USER_ID, [Action]
 "@
 
-        $txtExportResult = SqlExportLoginOutText $txtSql $txtPath $true $BAD006_UserIdFilterRegex
+        $txtExportResult = SqlExportLoginOutText $txtSql $txtPath $true $UserIdFilterRegex
 
         if ($txtExportResult -ne 0) {
             throw "Failed to export SYS_USER_LOGIN_TBL to TXT."
@@ -160,29 +160,29 @@ ORDER BY [Login/out date], USER_ID, [Action]
             Log "Removed work file: $txtPath"
         }
 
-        if ($BAD006_SFTPSourceDirectory -ne $BAD006_OutputDirectory) {
-            Copy-Item $zipPath (Join-Path $BAD006_SFTPSourceDirectory $zipFileName) -Force
-            Log "Zip copied to SFTP source directory: $BAD006_SFTPSourceDirectory"
+        if ($SFTPSourceDirectory -ne $OutputDirectory) {
+            Copy-Item $zipPath (Join-Path $SFTPSourceDirectory $zipFileName) -Force
+            Log "Zip copied to SFTP source directory: $SFTPSourceDirectory"
         }
 
         # The date range is a one-time work instruction. Clear it only after the
         # export and zip are created successfully so retries do not duplicate work.
-        Clear-Bad006DateRangeConfig $configPath
-        Log "Cleared BAD006_FromDate and BAD006_ToDate in config."
+        Clear-DateRangeConfig $configPath
+        Log "Cleared FromDate and ToDate in config."
     }
 
     # Upload every file currently in the source directory, not only the file
     # generated in this run. This lets the job recover files left by prior
     # failed SFTP attempts.
     $sendResult = SendDirectoryBySFTP `
-        $BAD006_SFTP_Cert `
-        $BAD006_SFTP_Port `
-        $BAD006_SFTP_User `
-        $BAD006_SFTP_Host `
-        $BAD006_SFTP_Remote `
-        $BAD006_SFTPSourceDirectory `
-        $BAD006_SFTPBackupDirectory `
-        $BAD006_SFTP_HostKey
+        $SFTPCert `
+        $SFTPPort `
+        $SFTPUser `
+        $SFTPHost `
+        $SFTPRemote `
+        $SFTPSourceDirectory `
+        $SFTPBackupDirectory `
+        $SFTPHostKey
 
     if ($sendResult -ne $true) {
         Log "One or more files failed to upload by SFTP."

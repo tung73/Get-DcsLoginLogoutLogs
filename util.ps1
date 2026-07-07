@@ -56,7 +56,7 @@ Function ParseConfigDate
     throw "$configName must be in yyyy-MM-dd format (e.g. 2026-06-04). Current value: $dateText"
 }
 
-Function Clear-Bad006DateRangeConfig
+Function Clear-DateRangeConfig
 {
     Param([Parameter(Mandatory=$true)][string]$configPath)
 
@@ -67,12 +67,12 @@ Function Clear-Bad006DateRangeConfig
     # Update only the two assignment lines. Avoid broad regex replacement so
     # comments, formatting, and similarly named settings remain untouched.
     $updatedLines = Get-Content -Path $configPath | ForEach-Object {
-        if ($_ -match '^\$BAD006_FromDate\s*=') {
-            return '$BAD006_FromDate = ""'
+        if ($_ -match '^\$FromDate\s*=') {
+            return '$FromDate = ""'
         }
 
-        if ($_ -match '^\$BAD006_ToDate\s*=') {
-            return '$BAD006_ToDate = ""'
+        if ($_ -match '^\$ToDate\s*=') {
+            return '$ToDate = ""'
         }
 
         return $_
@@ -375,7 +375,7 @@ Function Invoke-Psftp
         # error handling only around the native command, then restore it below.
         $ErrorActionPreference = "Continue"
 
-        $output = @(& $BAD006_SFTP_Program @arguments 2>&1)
+        $output = @(& $SFTPProgram @arguments 2>&1)
         $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
         $outputLines = @($output | ForEach-Object { "$_" })
 
@@ -520,8 +520,8 @@ Function sFTPSend
     $batchFile = $null
 
     try {
-        if (-not (Test-Path $BAD006_SFTP_Program)) {
-            throw "SFTP program not found: $BAD006_SFTP_Program"
+        if (-not (Test-Path $SFTPProgram)) {
+            throw "SFTP program not found: $SFTPProgram"
         }
 
         if (-not (Test-Path $certPath)) {

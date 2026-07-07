@@ -41,19 +41,19 @@ Configuration is defined in `config.ps1`.
 Dates must use `yyyy-MM-dd` format:
 
 ```powershell
-$BAD006_FromDate = "2026-06-04"
-$BAD006_ToDate = "2026-06-30"
+$FromDate = "2026-06-04"
+$ToDate = "2026-06-30"
 ```
 
 The range is inclusive. Login rows are selected by `LOGIN_DT`; logout rows are
 selected by `LOGOUT_DT`. Internally, the SQL query uses an exclusive upper bound
-for the next day to include all records on `BAD006_ToDate`.
+for the next day to include all records on `ToDate`.
 
 If either date is empty:
 
 ```powershell
-$BAD006_FromDate = ""
-$BAD006_ToDate = ""
+$FromDate = ""
+$ToDate = ""
 ```
 
 BAD006 skips TXT/ZIP generation but still runs SFTP for files already waiting
@@ -64,11 +64,11 @@ After a successful export and zip creation, BAD006 clears both dates in
 
 ### User ID filter
 
-`BAD006_UserIdFilterRegex` excludes matching `USER_ID` values from the TXT
+`UserIdFilterRegex` excludes matching `USER_ID` values from the TXT
 export:
 
 ```powershell
-$BAD006_UserIdFilterRegex = "uat"
+$UserIdFilterRegex = "uat"
 ```
 
 Matching is case-insensitive by PowerShell regex behavior. Leave it empty to
@@ -79,26 +79,26 @@ include all users.
 BAD006 uses `psftp.exe` with a generated batch file:
 
 ```powershell
-$BAD006_SFTP_Program = "$intfRoot\sftp\psftp.exe"
-$BAD006_SFTP_Cert = "$intfRoot\sftp\dcs_to_itu4_uat_id_rsa.ppk"
-$BAD006_SFTP_HostKey = ""
-$BAD006_SFTP_Host = "sftplogsvruat.customs.hksarg"
-$BAD006_SFTP_Port = "22"
-$BAD006_SFTP_User = "uat_sftp_log_dcs01"
-$BAD006_SFTP_Remote = "/"
+$SFTPProgram = "$intfRoot\sftp\psftp.exe"
+$SFTPCert = "$intfRoot\sftp\dcs_to_itu4_uat_id_rsa.ppk"
+$SFTPHostKey = ""
+$SFTPHost = "sftplogsvruat.customs.hksarg"
+$SFTPPort = "22"
+$SFTPUser = "uat_sftp_log_dcs01"
+$SFTPRemote = "/"
 ```
 
-`BAD006_SFTP_HostKey` is optional. Leave it empty to use the cached host key, or
+`SFTPHostKey` is optional. Leave it empty to use the cached host key, or
 set it when the environment requires explicit host key verification.
 
 The SFTP sender:
 
-1. Uploads every file in `BAD006_SFTPSourceDirectory`
+1. Uploads every file in `SFTPSourceDirectory`
 2. Logs each `psftp` output line and exit code
 3. Treats a `local:... => remote:...` transfer line as success
 4. Falls back to remote listing verification for accepted files that may be
    renamed by the server, such as `.zip.enc.zip`
-5. Moves files to `BAD006_SFTPBackupDirectory` only after confirmed success
+5. Moves files to `SFTPBackupDirectory` only after confirmed success
 
 ## Execution flow
 

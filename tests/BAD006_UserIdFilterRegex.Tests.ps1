@@ -10,7 +10,7 @@ BeforeAll {
 }
 
 Describe 'Test-UserIdExcludedByRegex' {
-    Context 'default BAD006_UserIdFilterRegex value (uat)' {
+    Context 'default UserIdFilterRegex value (uat)' {
         It 'excludes user IDs containing uat (case-insensitive)' {
             Test-UserIdExcludedByRegex 'UserUAT01' 'uat' | Should -Be $true
             Test-UserIdExcludedByRegex 'USERUAT' 'uat' | Should -Be $true
@@ -25,10 +25,10 @@ Describe 'Test-UserIdExcludedByRegex' {
         }
     }
 
-    Context 'config.ps1 default BAD006_UserIdFilterRegex' {
+    Context 'config.ps1 default UserIdFilterRegex' {
         It 'uses the configured default to exclude uat user IDs' {
             $configPath = Join-Path $scriptRoot 'config.ps1'
-            $configLine = Select-String -Path $configPath -Pattern '^\$BAD006_UserIdFilterRegex\s*=\s*"([^"]*)"' |
+            $configLine = Select-String -Path $configPath -Pattern '^\$UserIdFilterRegex\s*=\s*"([^"]*)"' |
                 Select-Object -First 1
 
             $configLine | Should -Not -BeNullOrEmpty
@@ -76,7 +76,7 @@ Describe 'Test-UserIdExcludedByRegex' {
 }
 
 Describe 'SqlExportLoginOutText regex validation' {
-    It 'returns 1 when BAD006_UserIdFilterRegex is invalid' {
+    It 'returns 1 when UserIdFilterRegex is invalid' {
         $exportPath = Join-Path $TestDrive 'invalid-regex-export.txt'
 
         $result = SqlExportLoginOutText 'SELECT 1' $exportPath $false '[invalid('
