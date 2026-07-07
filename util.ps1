@@ -293,6 +293,28 @@ Function New-SftpBatchFile
     return $batchFile
 }
 
+Function Test-SftpPutSucceeded
+{
+    Param(
+        [string]$outputText = "",
+        [int]$exitCode = 0
+    )
+
+    if ($outputText -match '(?i)(authentication fail|unable to open|network error|connection (refused|timed out|abandoned)|no session|cannot open host|general error)') {
+        return $false
+    }
+
+    if ($outputText -match 'local:.+=>\s*remote:') {
+        return $true
+    }
+
+    if ($outputText -match '(?i)(permission denied|access denied)') {
+        return $false
+    }
+
+    return $exitCode -eq 0
+}
+
 Function sFTPSend
 {
     Param(
@@ -324,16 +346,23 @@ Function sFTPSend
 
         Log "SFTP> Upload $file to $hostName"
 
-        $output = & $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $batchFile 2>&1
-        $exitCode = $LASTEXITCODE
+        $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $batchFile 2>&1)
+        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
+        $outputText = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
 
-        if ($output) {
-            Log "SFTP> $output"
+        if ($outputText) {
+            Log "SFTP> $outputText"
+        }
+
+        $uploadSucceeded = Test-SftpPutSucceeded $outputText $exitCode
+
+        if (-not $uploadSucceeded) {
+            Log "SFTP> Upload failed (exit code $exitCode)"
+            return $false
         }
 
         if ($exitCode -ne 0) {
-            Log "SFTP> Upload failed with exit code $exitCode"
-            return $false
+            Log "SFTP> Upload succeeded per transfer log despite exit code $exitCode"
         }
 
         return $true
