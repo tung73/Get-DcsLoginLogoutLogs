@@ -36,16 +36,16 @@ Function ParseConfigDate
         [Parameter(Mandatory=$true)][string]$configName
     )
 
-    $formats = [string[]]@("yyyyMMdd", "yyyy-MM-dd")
+    $format = "yyyy-MM-dd"
     $culture = [System.Globalization.CultureInfo]::InvariantCulture
     $styles = [System.Globalization.DateTimeStyles]::None
     $parsedDate = [datetime]::MinValue
 
-    if ([datetime]::TryParseExact($dateText, $formats, $culture, $styles, [ref]$parsedDate)) {
+    if ([datetime]::TryParseExact($dateText, $format, $culture, $styles, [ref]$parsedDate)) {
         return $parsedDate.Date
     }
 
-    throw "$configName must be in yyyyMMdd or yyyy-MM-dd format. Current value: $dateText"
+    throw "$configName must be in yyyy-MM-dd format (e.g. 2026-06-04). Current value: $dateText"
 }
 
 Function Clear-Bad006DateRangeConfig
