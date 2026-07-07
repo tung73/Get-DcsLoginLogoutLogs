@@ -6,6 +6,8 @@
 #
 #*****************************************************************************
 
+$BAD006_UtilVersion = "2026-07-07-sftp-diagnostic"
+
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
     $null = $sqlSender
