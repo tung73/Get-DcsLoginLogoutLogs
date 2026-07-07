@@ -6,7 +6,7 @@
 # Version:             1.0.0
 #
 # Purpose:             Export DCS user login/logout audit records from
-#                      SYS_USER_LOGIN_TBL for a configured LAST_UPD_DT date
+#                      SYS_USER_LOGIN_TBL for a configured login/logout date
 #                      range. The job writes a formatted TXT file, compresses it
 #                      into a DCS_LOGIN zip file, uploads pending zip files by
 #                      SFTP, and moves successfully uploaded files to backup.
@@ -82,7 +82,7 @@ try {
         $toDateText = $toDate.ToString("yyyyMMdd")
         $toDateExclusiveText = $toDate.AddDays(1).ToString("yyyyMMdd")
 
-        Log "Exporting SYS_USER_LOGIN_TBL where LAST_UPD_DT is from $fromDateText to $toDateText inclusive"
+        Log "Exporting SYS_USER_LOGIN_TBL where LOGIN_DT/LOGOUT_DT is from $fromDateText to $toDateText inclusive"
 
         $baseFileName = "DCS_LOGIN_{0}_to_{1}_{2}" -f $fromDateText, $toDateText, $runTimestamp
         $txtFileName = "$baseFileName.txt"
@@ -107,9 +107,8 @@ FROM (
            USER_ID,
            'login' AS [Action]
     FROM SYS_USER_LOGIN_TBL
-    WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
-      AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
-      AND LOGIN_DT IS NOT NULL
+    WHERE LOGIN_DT >= CONVERT(datetime, '$fromDateText', 112)
+      AND LOGIN_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
     UNION ALL
     SELECT logoutEvents.LOGOUT_DT AS [Login/out date],
            logoutEvents.USER_ID,
@@ -120,9 +119,8 @@ FROM (
         SELECT USER_ID,
                LOGOUT_DT
         FROM SYS_USER_LOGIN_TBL
-        WHERE LAST_UPD_DT >= CONVERT(datetime, '$fromDateText', 112)
-          AND LAST_UPD_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
-          AND LOGOUT_DT IS NOT NULL
+        WHERE LOGOUT_DT >= CONVERT(datetime, '$fromDateText', 112)
+          AND LOGOUT_DT < CONVERT(datetime, '$toDateExclusiveText', 112)
         GROUP BY USER_ID, LOGOUT_DT
     ) logoutEvents
 ) loginEvents

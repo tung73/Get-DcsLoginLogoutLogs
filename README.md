@@ -6,8 +6,8 @@ and uploads pending zip files by SFTP.
 
 ## Purpose
 
-The job exports rows by `LAST_UPD_DT` date range and produces a formatted TXT
-file with one record per login/logout event:
+The job exports rows whose login/logout event date falls within the configured
+date range and produces a formatted TXT file with one record per event:
 
 ```text
 [Login/out date] [USER_ID] [Action]
@@ -45,7 +45,8 @@ $BAD006_FromDate = "2026-06-04"
 $BAD006_ToDate = "2026-06-30"
 ```
 
-The range is inclusive. Internally, the SQL query uses an exclusive upper bound
+The range is inclusive. Login rows are selected by `LOGIN_DT`; logout rows are
+selected by `LOGOUT_DT`. Internally, the SQL query uses an exclusive upper bound
 for the next day to include all records on `BAD006_ToDate`.
 
 If either date is empty:
