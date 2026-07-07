@@ -44,7 +44,7 @@ $BAD006_SFTPSourceDirectory = "\\uat.db.dcs.customs.hksarg\uat\iisroot\DcsEnqLog
 # Export date range
 # -----------------------------------------------------------------------------
 
-# Inclusive export window (yyyyMMdd or yyyy-MM-dd). Leave empty to skip
+# Inclusive export window (yyyy-MM-dd, e.g. 2026-06-04). Leave empty to skip
 # TXT/ZIP generation while still running the SFTP upload step.
 $BAD006_FromDate = ""
 $BAD006_ToDate = ""
