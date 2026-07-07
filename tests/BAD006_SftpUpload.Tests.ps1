@@ -44,3 +44,30 @@ psftp> quit
         Test-SftpPutSucceeded $output 2 | Should -Be $false
     }
 }
+
+Describe 'Test-SftpRemoteListingContainsFile' {
+    It 'accepts a server-renamed .zip.enc.zip file in the remote listing' {
+        $fileName = 'DCS_LOGIN_20260101_to_20260201_20260707093759.zip'
+        $output = @'
+Using username "uat_sftp_log_dcs01".
+Remote working directory: /
+-rw-rw----   1 no-user  no-group     3538 Jul  7 01:37 DCS_LOGIN_20260101_to_20260201_20260707093759.zip.enc.zip
+'@
+
+        Test-SftpRemoteListingContainsFile $output $fileName | Should -Be $true
+    }
+
+    It 'rejects output that only shows successful login without a matching file' {
+        $fileName = 'DCS_LOGIN_20260101_to_20260201_20260707093759.zip'
+        $output = 'Using username "uat_sftp_log_dcs01".'
+
+        Test-SftpRemoteListingContainsFile $output $fileName | Should -Be $false
+    }
+
+    It 'rejects authentication failure during remote verification' {
+        $fileName = 'DCS_LOGIN_20260101_to_20260201_20260707093759.zip'
+        $output = 'FATAL ERROR: Authentication failed'
+
+        Test-SftpRemoteListingContainsFile $output $fileName | Should -Be $false
+    }
+}

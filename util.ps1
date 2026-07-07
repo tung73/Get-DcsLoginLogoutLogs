@@ -315,6 +315,80 @@ Function Test-SftpPutSucceeded
     return $exitCode -eq 0
 }
 
+Function New-SftpListBatchFile
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$destination,
+        [Parameter(Mandatory=$true)][string]$fileName
+    )
+
+    $batchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("bad006_sftp_ls_{0}.txt" -f [Guid]::NewGuid().ToString())
+    $commands = New-Object System.Collections.Generic.List[string]
+
+    $remoteDirectory = $destination.Trim()
+
+    if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
+        $commands.Add("cd $remoteDirectory")
+    }
+
+    $commands.Add("ls $fileName*")
+    $commands.Add("quit")
+    $commands | Set-Content -Path $batchFile -Encoding ASCII
+
+    return $batchFile
+}
+
+Function Test-SftpRemoteListingContainsFile
+{
+    Param(
+        [string]$outputText = "",
+        [Parameter(Mandatory=$true)][string]$fileName
+    )
+
+    if ($outputText -match '(?i)(authentication fail|unable to open|network error|connection (refused|timed out|abandoned)|no session|cannot open host|permission denied|access denied|general error)') {
+        return $false
+    }
+
+    return $outputText -match [regex]::Escape($fileName)
+}
+
+Function Test-SftpRemoteFileUploaded
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$certPath,
+        [Parameter(Mandatory=$true)][string]$port,
+        [Parameter(Mandatory=$true)][string]$target,
+        [Parameter(Mandatory=$true)][string]$destination,
+        [Parameter(Mandatory=$true)][string]$fileName
+    )
+
+    $listBatchFile = $null
+
+    try {
+        $listBatchFile = New-SftpListBatchFile $destination $fileName
+
+        Log "SFTP> Verify remote file exists: $fileName*"
+
+        $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $listBatchFile 2>&1)
+        $outputText = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
+
+        if ($outputText) {
+            Log "SFTP> $outputText"
+        }
+
+        return Test-SftpRemoteListingContainsFile $outputText $fileName
+    }
+    catch {
+        Log $_.Exception.Message
+        return $false
+    }
+    finally {
+        if ($null -ne $listBatchFile -and (Test-Path $listBatchFile)) {
+            Remove-Item $listBatchFile -Force
+        }
+    }
+}
+
 Function sFTPSend
 {
     Param(
@@ -357,6 +431,14 @@ Function sFTPSend
         $uploadSucceeded = Test-SftpPutSucceeded $outputText $exitCode
 
         if (-not $uploadSucceeded) {
+            $fileName = [System.IO.Path]::GetFileName($file)
+            $remoteVerified = Test-SftpRemoteFileUploaded $certPath $port $target $destination $fileName
+
+            if ($remoteVerified) {
+                Log "SFTP> Upload verified by remote listing despite exit code $exitCode"
+                return $true
+            }
+
             Log "SFTP> Upload failed (exit code $exitCode)"
             return $false
         }
