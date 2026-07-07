@@ -17,6 +17,8 @@ $parent = (Get-Item $MyInvocation.MyCommand.Path).DirectoryName
 $me = (Get-Item $MyInvocation.MyCommand.Path).BaseName
 $common = Join-Path (Split-Path -Parent $parent) "Common"
 
+# Prefer the shared batch Common folder when it exists; otherwise keep BAD006
+# self-contained by loading config/util from the script directory.
 if (-not (Test-Path (Join-Path $common "config.ps1"))) {
     $common = $parent
 }
@@ -27,6 +29,8 @@ $utilPath = Join-Path $common "util.ps1"
 . $configPath
 . $utilPath
 
+# The utility version is logged at startup so deployment issues are visible
+# immediately (for example, when an older Common\util.ps1 is loaded).
 if ([string]::IsNullOrWhiteSpace($BAD006_UtilVersion)) {
     $BAD006_UtilVersion = "unknown"
 }
@@ -59,6 +63,8 @@ try {
 
     $skipGenerate = [string]::IsNullOrWhiteSpace($BAD006_FromDate) -or [string]::IsNullOrWhiteSpace($BAD006_ToDate)
 
+    # Empty dates intentionally skip export generation but still allow the SFTP
+    # step to send any files that are already waiting in the source directory.
     if ($skipGenerate) {
         Log "BAD006_FromDate or BAD006_ToDate is empty. Skipping file generation."
     }
@@ -107,6 +113,8 @@ FROM (
            logoutEvents.USER_ID,
            'logout' AS [Action]
     FROM (
+        -- Multiple rows can share the same USER_ID/LOGOUT_DT. Group here to
+        -- keep logout records unique while preserving all login events above.
         SELECT USER_ID,
                LOGOUT_DT
         FROM SYS_USER_LOGIN_TBL
@@ -145,10 +153,15 @@ ORDER BY [Login/out date], USER_ID, [Action]
             Log "Zip copied to SFTP source directory: $BAD006_SFTPSourceDirectory"
         }
 
+        # The date range is a one-time work instruction. Clear it only after the
+        # export and zip are created successfully so retries do not duplicate work.
         Clear-Bad006DateRangeConfig $configPath
         Log "Cleared BAD006_FromDate and BAD006_ToDate in config."
     }
 
+    # Upload every file currently in the source directory, not only the file
+    # generated in this run. This lets the job recover files left by prior
+    # failed SFTP attempts.
     $sendResult = SendDirectoryBySFTP `
         $BAD006_SFTP_Cert `
         $BAD006_SFTP_Port `

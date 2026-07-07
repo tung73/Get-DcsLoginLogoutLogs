@@ -58,6 +58,8 @@ Function Clear-Bad006DateRangeConfig
         throw "Config file not found: $configPath"
     }
 
+    # Update only the two assignment lines. Avoid broad regex replacement so
+    # comments, formatting, and similarly named settings remain untouched.
     $updatedLines = Get-Content -Path $configPath | ForEach-Object {
         if ($_ -match '^\$BAD006_FromDate\s*=') {
             return '$BAD006_FromDate = ""'
@@ -96,6 +98,8 @@ Function Sql
         $dataSet = New-Object System.Data.DataSet
         $adapter.Fill($dataSet) | Out-Null
 
+        # The leading comma prevents PowerShell from unrolling a single DataRow
+        # when callers expect a DataTable object.
         return ,$dataSet.Tables[0]
     }
     catch {
@@ -139,6 +143,7 @@ Function SqlSP
         $dataSet = New-Object System.Data.DataSet
         $adapter.Fill($dataSet) | Out-Null
 
+        # Keep stored procedure result handling consistent with Sql().
         return ,$dataSet.Tables[0]
     }
     catch {
@@ -163,6 +168,8 @@ Function Test-UserIdExcludedByRegex
         return $false
     }
 
+    # PowerShell -match is case-insensitive by default, which matches the
+    # intended config behavior for values such as "uat".
     return $userId -match $userIdFilterRegex
 }
 
@@ -180,6 +187,8 @@ Function SqlExportLoginOutText
     $reader = $null
 
     try {
+        # Validate the configured regex before opening SQL or writing output so
+        # bad config fails fast with a clear log message.
         if (-not [string]::IsNullOrWhiteSpace($userIdFilterRegex)) {
             $null = [regex]::new($userIdFilterRegex)
         }
@@ -284,6 +293,8 @@ Function New-SftpBatchFile
 
     $remoteDirectory = $destination.Trim()
 
+    # psftp starts in the account's default remote folder. A remote value of "/"
+    # already points there, so only issue cd for a concrete subdirectory.
     if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
         $commands.Add("cd $remoteDirectory")
     }
@@ -306,6 +317,8 @@ Function Test-SftpPutSucceeded
         return $false
     }
 
+    # A transfer line is stronger evidence than the exit code. Some SFTP
+    # servers perform post-upload processing, so keep this success signal.
     if ($outputText -match 'local:.+=>\s*remote:') {
         return $true
     }
@@ -334,6 +347,10 @@ Function Invoke-Psftp
     }
 
     try {
+        # BAD006 runs with ErrorActionPreference=Stop. psftp writes normal status
+        # text (for example "Using username ...") to stderr, and PowerShell can
+        # promote that to a terminating error before LASTEXITCODE is read. Relax
+        # error handling only around the native command, then restore it below.
         $ErrorActionPreference = "Continue"
 
         $output = @(& $BAD006_SFTP_Program @arguments 2>&1)
@@ -367,10 +384,14 @@ Function New-SftpListBatchFile
 
     $remoteDirectory = $destination.Trim()
 
+    # Match New-SftpBatchFile behavior so verification checks the same remote
+    # directory used for the upload.
     if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
         $commands.Add("cd $remoteDirectory")
     }
 
+    # The receiving server may rename accepted files (for example .zip.enc.zip),
+    # so list by the original upload name plus wildcard.
     $commands.Add("ls $fileName*")
     $commands.Add("quit")
     $commands | Set-Content -Path $batchFile -Encoding ASCII
@@ -407,6 +428,8 @@ Function Test-SftpRemoteFileUploaded
     try {
         $listBatchFile = New-SftpListBatchFile $destination $fileName
 
+        # Verification is a fallback for unclear psftp results. It prevents a
+        # false failure when the server accepted and renamed the file.
         Log "SFTP> Verify remote file exists: $fileName*"
 
         $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $listBatchFile)
@@ -463,6 +486,8 @@ Function sFTPSend
 
         Log "SFTP> Upload $file to $hostName"
 
+        # Keep arguments as an array so paths with spaces are passed safely to
+        # psftp without relying on manual command-line quoting.
         $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $batchFile)
         $exitCode = $psftpResult.ExitCode
         $outputLines = $psftpResult.OutputLines
@@ -534,6 +559,8 @@ Function SendDirectoryBySFTP
         if ($result -eq $true) {
             Log "Success upload: $($file.FullName)"
 
+            # Move only after confirmed success so failed files remain in the
+            # source directory for the next scheduled retry.
             $backupPath = Join-Path $backupDirectory $file.Name
             Move-Item -Path $file.FullName -Destination $backupPath -Force
             Log "Moved to backup: $backupPath"
@@ -560,6 +587,8 @@ Function Test-SqlResultHasRows
     }
 
     if ($Result -is [System.Data.DataTable]) {
+        # Use Select().Length instead of Rows.Count to avoid PowerShell treating
+        # a single-row table unexpectedly when results have been unwrapped.
         return $Result.Select().Length -gt 0
     }
 
@@ -602,6 +631,8 @@ Function GetBatchParmValue
     $escapedCtrlKey = $CtrlKey -replace "'", "''"
     $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_VW WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
 
+    # Prefer the view, but fall back to the base table because some environments
+    # do not expose all active job parameters through SYS_BATCH_PARM_VW.
     if (-not (Test-SqlResultHasRows $result)) {
         $result = Sql "SELECT VAL FROM SYS_BATCH_PARM_TBL WHERE JOB_NAME = '$escapedJobName' AND CTRL_KEY = '$escapedCtrlKey'" $false
     }
@@ -631,6 +662,8 @@ Function Test-JobHostMatch
         return $true
     }
 
+    # Accept FQDN/short-name differences between Windows COMPUTERNAME and the
+    # JOB_OWNER value stored in batch parameters.
     if ($Owner.StartsWith("$hostName.", [System.StringComparison]::OrdinalIgnoreCase)) {
         return $true
     }
@@ -649,6 +682,8 @@ Function IsActiveJob
     try {
         $enabled = GetBatchParmValue $JobName "ENABLE"
 
+        # ENABLE is the primary switch for the batch job; status and owner are
+        # checked only after the job is explicitly enabled.
         if ($enabled -ne "Y") {
             Log "Job [$JobName] is not enabled. ENABLE=[$enabled]"
             return $false
