@@ -11,12 +11,12 @@ BeforeAll {
 
 Describe 'Invoke-Psftp' {
     It 'captures native command output and non-zero exit code without throwing' {
-        $originalProgram = $global:BAD006_SFTP_Program
+        $originalProgram = $global:SFTPProgram
         $originalNativePreference = $PSNativeCommandUseErrorActionPreference
         $originalErrorActionPreference = $ErrorActionPreference
 
         try {
-            $global:BAD006_SFTP_Program = 'pwsh'
+            $global:SFTPProgram = 'pwsh'
             $ErrorActionPreference = 'Stop'
             $PSNativeCommandUseErrorActionPreference = $true
 
@@ -28,7 +28,7 @@ Describe 'Invoke-Psftp' {
             $ErrorActionPreference | Should -Be 'Stop'
         }
         finally {
-            $global:BAD006_SFTP_Program = $originalProgram
+            $global:SFTPProgram = $originalProgram
             $PSNativeCommandUseErrorActionPreference = $originalNativePreference
             $ErrorActionPreference = $originalErrorActionPreference
         }
