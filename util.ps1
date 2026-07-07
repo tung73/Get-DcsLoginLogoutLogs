@@ -6,7 +6,7 @@
 #
 #*****************************************************************************
 
-$BAD006_UtilVersion = "2026-07-07-sftp-diagnostic"
+$BAD006_UtilVersion = "2026-07-07-sftp-native-capture"
 
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
@@ -317,6 +317,39 @@ Function Test-SftpPutSucceeded
     return $exitCode -eq 0
 }
 
+Function Invoke-Psftp
+{
+    Param(
+        [Parameter(Mandatory=$true)][string[]]$arguments
+    )
+
+    $restoreNativeCommandPreference = $false
+    $previousNativeCommandPreference = $null
+
+    if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+        $restoreNativeCommandPreference = $true
+        $previousNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
+        $PSNativeCommandUseErrorActionPreference = $false
+    }
+
+    try {
+        $output = @(& $BAD006_SFTP_Program @arguments 2>&1)
+        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
+        $outputLines = @($output | ForEach-Object { "$_" })
+
+        return [pscustomobject]@{
+            OutputLines = $outputLines
+            OutputText = ($outputLines -join [Environment]::NewLine)
+            ExitCode = $exitCode
+        }
+    }
+    finally {
+        if ($restoreNativeCommandPreference) {
+            $PSNativeCommandUseErrorActionPreference = $previousNativeCommandPreference
+        }
+    }
+}
+
 Function New-SftpListBatchFile
 {
     Param(
@@ -371,10 +404,10 @@ Function Test-SftpRemoteFileUploaded
 
         Log "SFTP> Verify remote file exists: $fileName*"
 
-        $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $listBatchFile 2>&1)
-        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
-        $outputLines = @($output | ForEach-Object { "$_" })
-        $outputText = $outputLines -join [Environment]::NewLine
+        $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $listBatchFile)
+        $exitCode = $psftpResult.ExitCode
+        $outputLines = $psftpResult.OutputLines
+        $outputText = $psftpResult.OutputText
 
         foreach ($line in $outputLines) {
             Log "SFTP> $line"
@@ -425,10 +458,10 @@ Function sFTPSend
 
         Log "SFTP> Upload $file to $hostName"
 
-        $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $batchFile 2>&1)
-        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
-        $outputLines = @($output | ForEach-Object { "$_" })
-        $outputText = $outputLines -join [Environment]::NewLine
+        $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $batchFile)
+        $exitCode = $psftpResult.ExitCode
+        $outputLines = $psftpResult.OutputLines
+        $outputText = $psftpResult.OutputText
 
         foreach ($line in $outputLines) {
             Log "SFTP> $line"
