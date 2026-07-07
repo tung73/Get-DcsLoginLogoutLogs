@@ -370,11 +370,14 @@ Function Test-SftpRemoteFileUploaded
         Log "SFTP> Verify remote file exists: $fileName*"
 
         $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $listBatchFile 2>&1)
-        $outputText = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
+        $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
+        $outputLines = @($output | ForEach-Object { "$_" })
+        $outputText = $outputLines -join [Environment]::NewLine
 
-        if ($outputText) {
-            Log "SFTP> $outputText"
+        foreach ($line in $outputLines) {
+            Log "SFTP> $line"
         }
+        Log "SFTP> Verify exit code: $exitCode"
 
         return Test-SftpRemoteListingContainsFile $outputText $fileName
     }
@@ -422,11 +425,13 @@ Function sFTPSend
 
         $output = @(& $BAD006_SFTP_Program -batch -i $certPath -P $port $target -b $batchFile 2>&1)
         $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { -1 }
-        $outputText = ($output | ForEach-Object { "$_" }) -join [Environment]::NewLine
+        $outputLines = @($output | ForEach-Object { "$_" })
+        $outputText = $outputLines -join [Environment]::NewLine
 
-        if ($outputText) {
-            Log "SFTP> $outputText"
+        foreach ($line in $outputLines) {
+            Log "SFTP> $line"
         }
+        Log "SFTP> Upload exit code: $exitCode"
 
         $uploadSucceeded = Test-SftpPutSucceeded $outputText $exitCode
 
