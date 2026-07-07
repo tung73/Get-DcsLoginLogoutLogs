@@ -21,10 +21,15 @@ if (-not (Test-Path (Join-Path $common "config.ps1"))) {
     $common = $parent
 }
 
-. (Join-Path $common "config.ps1")
-. (Join-Path $common "util.ps1")
-
 $configPath = Join-Path $common "config.ps1"
+$utilPath = Join-Path $common "util.ps1"
+
+. $configPath
+. $utilPath
+
+if ([string]::IsNullOrWhiteSpace($BAD006_UtilVersion)) {
+    $BAD006_UtilVersion = "unknown"
+}
 
 if ([string]::IsNullOrWhiteSpace($BAD006_JobName)) {
     $jobName = $me
@@ -43,6 +48,9 @@ try {
     EnsureDirectory $BAD006_SFTPBackupDirectory
 
     Log "$me start running"
+    Log "Loaded config: $configPath"
+    Log "Loaded util: $utilPath"
+    Log "Loaded util version: $BAD006_UtilVersion"
 
     if ((IsActiveJob $jobName) -ne $true) {
         Log "Job [$jobName] is inactive. Script [$me] is terminated."
