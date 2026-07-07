@@ -6,13 +6,17 @@
 #
 #*****************************************************************************
 
-$BAD006_UtilVersion = "2026-07-07-sftp-erroraction-capture"
+$BAD006_UtilVersion = "2026-07-07-phase1-util-cleanup"
 
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
     $null = $sqlSender
     Log "$sqlEvent"
 }
+
+# =============================================================================
+# Logging and filesystem helpers
+# =============================================================================
 
 Function Log
 {
@@ -30,6 +34,10 @@ Function EnsureDirectory
         New-Item -ItemType Directory -Path $path -Force | Out-Null
     }
 }
+
+# =============================================================================
+# Configuration helpers
+# =============================================================================
 
 Function ParseConfigDate
 {
@@ -74,6 +82,10 @@ Function Clear-Bad006DateRangeConfig
 
     $updatedLines | Set-Content -Path $configPath
 }
+
+# =============================================================================
+# SQL helpers
+# =============================================================================
 
 Function Sql
 {
@@ -157,6 +169,10 @@ Function SqlSP
     }
 }
 
+# =============================================================================
+# Export helpers
+# =============================================================================
+
 Function Test-UserIdExcludedByRegex
 {
     Param(
@@ -239,6 +255,10 @@ Function SqlExportLoginOutText
     }
 }
 
+# =============================================================================
+# Archive helpers
+# =============================================================================
+
 Function ZipFiles
 {
     Param(
@@ -281,6 +301,10 @@ Function ZipFiles
     }
 }
 
+# =============================================================================
+# SFTP helpers
+# =============================================================================
+
 Function New-SftpBatchFile
 {
     Param(
@@ -291,12 +315,12 @@ Function New-SftpBatchFile
     $batchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("bad006_sftp_{0}.txt" -f [Guid]::NewGuid().ToString())
     $commands = New-Object System.Collections.Generic.List[string]
 
-    $remoteDirectory = $destination.Trim()
+    $remoteDir = $destination.Trim()
 
     # psftp starts in the account's default remote folder. A remote value of "/"
     # already points there, so only issue cd for a concrete subdirectory.
-    if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
-        $commands.Add("cd $remoteDirectory")
+    if ($remoteDir -ne "" -and $remoteDir -ne "/") {
+        $commands.Add("cd $remoteDir")
     }
 
     $commands.Add('put "' + $file.Replace('"', '""') + '"')
@@ -372,6 +396,32 @@ Function Invoke-Psftp
     }
 }
 
+Function New-PsftpArguments
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$certPath,
+        [Parameter(Mandatory=$true)][string]$port,
+        [Parameter(Mandatory=$true)][string]$target,
+        [Parameter(Mandatory=$true)][string]$batchFile,
+        [string]$hostKey = ""
+    )
+
+    $sftpArgs = @("-batch")
+
+    if (-not [string]::IsNullOrWhiteSpace($hostKey)) {
+        $sftpArgs += @("-hostkey", $hostKey)
+    }
+
+    $sftpArgs += @(
+        "-P", $port,
+        "-i", $certPath,
+        $target,
+        "-b", $batchFile
+    )
+
+    return $sftpArgs
+}
+
 Function New-SftpListBatchFile
 {
     Param(
@@ -382,12 +432,12 @@ Function New-SftpListBatchFile
     $batchFile = Join-Path ([System.IO.Path]::GetTempPath()) ("bad006_sftp_ls_{0}.txt" -f [Guid]::NewGuid().ToString())
     $commands = New-Object System.Collections.Generic.List[string]
 
-    $remoteDirectory = $destination.Trim()
+    $remoteDir = $destination.Trim()
 
     # Match New-SftpBatchFile behavior so verification checks the same remote
     # directory used for the upload.
-    if ($remoteDirectory -ne "" -and $remoteDirectory -ne "/") {
-        $commands.Add("cd $remoteDirectory")
+    if ($remoteDir -ne "" -and $remoteDir -ne "/") {
+        $commands.Add("cd $remoteDir")
     }
 
     # The receiving server may rename accepted files (for example .zip.enc.zip),
@@ -420,7 +470,8 @@ Function Test-SftpRemoteFileUploaded
         [Parameter(Mandatory=$true)][string]$port,
         [Parameter(Mandatory=$true)][string]$target,
         [Parameter(Mandatory=$true)][string]$destination,
-        [Parameter(Mandatory=$true)][string]$fileName
+        [Parameter(Mandatory=$true)][string]$fileName,
+        [string]$hostKey = ""
     )
 
     $listBatchFile = $null
@@ -432,7 +483,8 @@ Function Test-SftpRemoteFileUploaded
         # false failure when the server accepted and renamed the file.
         Log "SFTP> Verify remote file exists: $fileName*"
 
-        $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $listBatchFile)
+        $psftpArgs = New-PsftpArguments $certPath $port $target $listBatchFile $hostKey
+        $psftpResult = Invoke-Psftp -arguments $psftpArgs
         $exitCode = $psftpResult.ExitCode
         $outputLines = $psftpResult.OutputLines
         $outputText = $psftpResult.OutputText
@@ -463,7 +515,8 @@ Function sFTPSend
         [Parameter(Mandatory=$true)][string]$userName,
         [Parameter(Mandatory=$true)][string]$hostName,
         [Parameter(Mandatory=$true)][string]$destination,
-        [Parameter(Mandatory=$true)][string]$file
+        [Parameter(Mandatory=$true)][string]$file,
+        [string]$hostKey = ""
     )
 
     $batchFile = $null
@@ -482,13 +535,14 @@ Function sFTPSend
         }
 
         $batchFile = New-SftpBatchFile $destination $file
-        $target = "{0}@{1}" -f $userName, $hostName
+        $sftpTarget = "{0}@{1}" -f $userName, $hostName
 
         Log "SFTP> Upload $file to $hostName"
 
         # Keep arguments as an array so paths with spaces are passed safely to
         # psftp without relying on manual command-line quoting.
-        $psftpResult = Invoke-Psftp -arguments @("-batch", "-i", $certPath, "-P", $port, $target, "-b", $batchFile)
+        $psftpArgs = New-PsftpArguments $certPath $port $sftpTarget $batchFile $hostKey
+        $psftpResult = Invoke-Psftp -arguments $psftpArgs
         $exitCode = $psftpResult.ExitCode
         $outputLines = $psftpResult.OutputLines
         $outputText = $psftpResult.OutputText
@@ -502,7 +556,7 @@ Function sFTPSend
 
         if (-not $uploadSucceeded) {
             $fileName = [System.IO.Path]::GetFileName($file)
-            $remoteVerified = Test-SftpRemoteFileUploaded $certPath $port $target $destination $fileName
+            $remoteVerified = Test-SftpRemoteFileUploaded $certPath $port $sftpTarget $destination $fileName $hostKey
 
             if ($remoteVerified) {
                 Log "SFTP> Upload verified by remote listing despite exit code $exitCode"
@@ -539,7 +593,8 @@ Function SendDirectoryBySFTP
         [Parameter(Mandatory=$true)][string]$hostName,
         [Parameter(Mandatory=$true)][string]$destination,
         [Parameter(Mandatory=$true)][string]$sourceDirectory,
-        [Parameter(Mandatory=$true)][string]$backupDirectory
+        [Parameter(Mandatory=$true)][string]$backupDirectory,
+        [string]$hostKey = ""
     )
 
     $files = Get-ChildItem -Path $sourceDirectory -File
@@ -554,7 +609,7 @@ Function SendDirectoryBySFTP
     $allSucceeded = $true
 
     foreach ($file in $files) {
-        $result = sFTPSend $certPath $port $userName $hostName $destination $file.FullName
+        $result = sFTPSend $certPath $port $userName $hostName $destination $file.FullName $hostKey
 
         if ($result -eq $true) {
             Log "Success upload: $($file.FullName)"
@@ -573,6 +628,10 @@ Function SendDirectoryBySFTP
 
     return $allSucceeded
 }
+
+# =============================================================================
+# SQL result helpers
+# =============================================================================
 
 Function Test-SqlResultHasRows
 {
@@ -619,6 +678,10 @@ Function Get-SqlResultScalar
 
     return $null
 }
+
+# =============================================================================
+# Batch job control helpers
+# =============================================================================
 
 Function GetBatchParmValue
 {

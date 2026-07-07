@@ -63,6 +63,10 @@ $BAD006_UserIdFilterRegex = "uat"
 
 $BAD006_SFTP_Program = "$intfRoot\sftp\psftp.exe"
 $BAD006_SFTP_Cert = "$intfRoot\sftp\dcs_to_itu4_uat_id_rsa.ppk"
+
+# Optional psftp host key fingerprint. Leave empty to use the cached host key.
+$BAD006_SFTP_HostKey = ""
+
 $BAD006_SFTP_Host = "sftplogsvruat.customs.hksarg"
 $BAD006_SFTP_Port = "22"
 $BAD006_SFTP_User = "uat_sftp_log_dcs01"

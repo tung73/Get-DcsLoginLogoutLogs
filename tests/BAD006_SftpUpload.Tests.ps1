@@ -35,6 +35,20 @@ Describe 'Invoke-Psftp' {
     }
 }
 
+Describe 'New-PsftpArguments' {
+    It 'builds psftp arguments without host key when host key is blank' {
+        $args = New-PsftpArguments 'cert.ppk' '22' 'user@example.test' 'batch.txt' ''
+
+        $args | Should -Be @('-batch', '-P', '22', '-i', 'cert.ppk', 'user@example.test', '-b', 'batch.txt')
+    }
+
+    It 'includes host key argument when configured' {
+        $args = New-PsftpArguments 'cert.ppk' '22' 'user@example.test' 'batch.txt' 'ssh-rsa 2048 SHA256:abc'
+
+        $args | Should -Be @('-batch', '-hostkey', 'ssh-rsa 2048 SHA256:abc', '-P', '22', '-i', 'cert.ppk', 'user@example.test', '-b', 'batch.txt')
+    }
+}
+
 Describe 'Test-SftpPutSucceeded' {
     It 'treats psftp transfer log as success even when exit code is non-zero' {
         $output = @'

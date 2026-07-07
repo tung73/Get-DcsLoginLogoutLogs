@@ -169,7 +169,8 @@ ORDER BY [Login/out date], USER_ID, [Action]
         $BAD006_SFTP_Host `
         $BAD006_SFTP_Remote `
         $BAD006_SFTPSourceDirectory `
-        $BAD006_SFTPBackupDirectory
+        $BAD006_SFTPBackupDirectory `
+        $BAD006_SFTP_HostKey
 
     if ($sendResult -ne $true) {
         Log "One or more files failed to upload by SFTP."
