@@ -88,8 +88,20 @@ $SFTPUser = "uat_sftp_log_dcs01"
 $SFTPRemote = "/"
 ```
 
-`SFTPHostKey` is optional. Leave it empty to use the cached host key, or
-set it when the environment requires explicit host key verification.
+`SFTPHostKey` is optional. Leave it empty to use the cached host key, or set it
+when the installed `psftp.exe` supports explicit host key verification.
+
+Older PuTTY/psftp builds may report:
+
+```text
+psftp: unknown option "-hostkey"
+```
+
+When that happens, BAD006 logs the message and retries without `-hostkey`, which
+means the host key must already be cached for the Windows account running the
+batch job. To avoid manual prompts in unattended runs, either use a newer
+`psftp.exe` that supports `-hostkey`, or pre-cache the host key under the same
+Windows account that runs BAD006.
 
 The SFTP sender:
 

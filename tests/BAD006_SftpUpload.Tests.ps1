@@ -49,6 +49,21 @@ Describe 'New-PsftpArguments' {
     }
 }
 
+Describe 'Test-PsftpHostKeyOptionUnsupported' {
+    It 'detects older psftp builds that do not support -hostkey' {
+        $output = @'
+psftp: unknown option "-hostkey"
+       try typing "psftp -h" for help
+'@
+
+        Test-PsftpHostKeyOptionUnsupported $output | Should -Be $true
+    }
+
+    It 'does not match unrelated psftp output' {
+        Test-PsftpHostKeyOptionUnsupported 'Using username "uat_sftp_log_dcs01".' | Should -Be $false
+    }
+}
+
 Describe 'Test-SftpPutSucceeded' {
     It 'treats psftp transfer log as success even when exit code is non-zero' {
         $output = @'
