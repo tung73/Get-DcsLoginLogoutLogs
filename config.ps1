@@ -65,6 +65,8 @@ $SFTPProgram = "$intfRoot\sftp\psftp.exe"
 $SFTPCert = "$intfRoot\sftp\dcs_to_itu4_uat_id_rsa.ppk"
 
 # Optional psftp host key fingerprint. Leave empty to use the cached host key.
+# Older psftp builds may not support -hostkey; in that case the job retries
+# without -hostkey and uses the key cached for the Windows account running it.
 $SFTPHostKey = ""
 
 $SFTPHost = "sftplogsvruat.customs.hksarg"

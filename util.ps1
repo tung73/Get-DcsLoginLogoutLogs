@@ -420,6 +420,35 @@ Function New-PsftpArguments
     return $sftpArgs
 }
 
+Function Test-PsftpHostKeyOptionUnsupported
+{
+    Param([string]$outputText = "")
+
+    return $outputText -match '(?i)unknown option\s+"?-hostkey"?'
+}
+
+Function Invoke-PsftpBatch
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]$certPath,
+        [Parameter(Mandatory=$true)][string]$port,
+        [Parameter(Mandatory=$true)][string]$target,
+        [Parameter(Mandatory=$true)][string]$batchFile,
+        [string]$hostKey = ""
+    )
+
+    $psftpArgs = New-PsftpArguments $certPath $port $target $batchFile $hostKey
+    $psftpResult = Invoke-Psftp -arguments $psftpArgs
+
+    if (-not [string]::IsNullOrWhiteSpace($hostKey) -and (Test-PsftpHostKeyOptionUnsupported $psftpResult.OutputText)) {
+        Log "SFTP> Installed psftp does not support -hostkey; retrying with cached host key"
+        $psftpArgs = New-PsftpArguments $certPath $port $target $batchFile ""
+        $psftpResult = Invoke-Psftp -arguments $psftpArgs
+    }
+
+    return $psftpResult
+}
+
 Function New-SftpListBatchFile
 {
     Param(
@@ -481,8 +510,7 @@ Function Test-SftpRemoteFileUploaded
         # false failure when the server accepted and renamed the file.
         Log "SFTP> Verify remote file exists: $fileName*"
 
-        $psftpArgs = New-PsftpArguments $certPath $port $target $listBatchFile $hostKey
-        $psftpResult = Invoke-Psftp -arguments $psftpArgs
+        $psftpResult = Invoke-PsftpBatch $certPath $port $target $listBatchFile $hostKey
         $exitCode = $psftpResult.ExitCode
         $outputLines = $psftpResult.OutputLines
         $outputText = $psftpResult.OutputText
@@ -539,8 +567,7 @@ Function sFTPSend
 
         # Keep arguments as an array so paths with spaces are passed safely to
         # psftp without relying on manual command-line quoting.
-        $psftpArgs = New-PsftpArguments $certPath $port $sftpTarget $batchFile $hostKey
-        $psftpResult = Invoke-Psftp -arguments $psftpArgs
+        $psftpResult = Invoke-PsftpBatch $certPath $port $sftpTarget $batchFile $hostKey
         $exitCode = $psftpResult.ExitCode
         $outputLines = $psftpResult.OutputLines
         $outputText = $psftpResult.OutputText
