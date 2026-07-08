@@ -16,16 +16,11 @@
 #                      skipped but SFTP still runs for pending files.
 #
 # Change Log:
-#   2026-07-07  v1.0.0  Initial BAD006 implementation for login/logout export.
-#   2026-07-07  v1.0.0  Added TXT output, zip creation, work-file cleanup, and
-#                       SFTP upload with backup move after confirmed success.
-#   2026-07-07  v1.0.0  Added configurable USER_ID regex exclusion filter.
-#   2026-07-07  v1.0.0  Added yyyy-MM-dd config date validation and automatic
-#                       clearing of FromDate/ToDate after successful export.
-#   2026-07-07  v1.0.0  Improved psftp handling for PowerShell Stop preference,
-#                       optional host key, transfer logging, and remote verify.
-#   2026-07-07  v1.0.0  Changed export filtering from LAST_UPD_DT to actual
-#                       event dates: LOGIN_DT for login, LOGOUT_DT for logout.
+#   2026-07-07  v1.0.0  Initial release: export login/logout events by
+#                       LOGIN_DT/LOGOUT_DT date range, apply USER_ID regex
+#                       filtering, generate TXT and zip outputs, upload pending
+#                       zip files by SFTP, move successful uploads to backup,
+#                       and clear FromDate/ToDate after successful export.
 #
 #*****************************************************************************
 
