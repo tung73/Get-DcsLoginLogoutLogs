@@ -9,7 +9,7 @@
 $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
     param($sqlSender, $sqlEvent)
     $null = $sqlSender
-    Log "$sqlEvent"
+    Log "$sqlEvent" "DEBUG"
 }
 
 # =============================================================================
@@ -18,10 +18,16 @@ $SqlPrintOutHandler = [System.Data.SqlClient.SqlInfoMessageEventHandler] {
 
 Function Log
 {
-    Param([Parameter(Mandatory=$true)][string]$message)
+    Param(
+        [Parameter(Mandatory=$true)][string]$message,
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
+        [string]$level = "INFO"
+    )
 
-    Add-Content $logFile -Value "[$("{0:yyyy-MM-dd HH:mm:ss}" -f (Get-Date))] $message"
-    Write-Host "[$("{0:yyyy-MM-dd HH:mm:ss}" -f (Get-Date))] $message"
+    $logLine = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $level, $message
+
+    Add-Content $logFile -Value $logLine
+    Write-Host $logLine
 }
 
 Function EnsureDirectory
@@ -113,7 +119,7 @@ Function Sql
         return ,$dataSet.Tables[0]
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $null
     }
     finally {
@@ -157,7 +163,7 @@ Function SqlSP
         return ,$dataSet.Tables[0]
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $null
     }
     finally {
@@ -235,7 +241,7 @@ Function SqlExportLoginOutText
         return 0
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return 1
     }
     finally {
@@ -289,7 +295,7 @@ Function ZipFiles
         return 0
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return 1
     }
     finally {
@@ -441,7 +447,7 @@ Function Invoke-PsftpBatch
     $psftpResult = Invoke-Psftp -arguments $psftpArgs
 
     if (-not [string]::IsNullOrWhiteSpace($hostKey) -and (Test-PsftpHostKeyOptionUnsupported $psftpResult.OutputText)) {
-        Log "SFTP> Installed psftp does not support -hostkey; retrying with cached host key"
+        Log "SFTP> Installed psftp does not support -hostkey; retrying with cached host key" "WARN"
         $psftpArgs = New-PsftpArguments $certPath $port $target $batchFile ""
         $psftpResult = Invoke-Psftp -arguments $psftpArgs
     }
@@ -508,7 +514,7 @@ Function Test-SftpRemoteFileUploaded
 
         # Verification is a fallback for unclear psftp results. It prevents a
         # false failure when the server accepted and renamed the file.
-        Log "SFTP> Verify remote file exists: $fileName*"
+        Log "SFTP> Verify remote file exists: $fileName*" "DEBUG"
 
         $psftpResult = Invoke-PsftpBatch $certPath $port $target $listBatchFile $hostKey
         $exitCode = $psftpResult.ExitCode
@@ -516,14 +522,14 @@ Function Test-SftpRemoteFileUploaded
         $outputText = $psftpResult.OutputText
 
         foreach ($line in $outputLines) {
-            Log "SFTP> $line"
+            Log "SFTP> $line" "DEBUG"
         }
-        Log "SFTP> Verify exit code: $exitCode"
+        Log "SFTP> Verify exit code: $exitCode" "DEBUG"
 
         return Test-SftpRemoteListingContainsFile $outputText $fileName
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $false
     }
     finally {
@@ -573,9 +579,9 @@ Function sFTPSend
         $outputText = $psftpResult.OutputText
 
         foreach ($line in $outputLines) {
-            Log "SFTP> $line"
+            Log "SFTP> $line" "DEBUG"
         }
-        Log "SFTP> Upload exit code: $exitCode"
+        Log "SFTP> Upload exit code: $exitCode" "DEBUG"
 
         $uploadSucceeded = Test-SftpPutSucceeded $outputText $exitCode
 
@@ -584,22 +590,22 @@ Function sFTPSend
             $remoteVerified = Test-SftpRemoteFileUploaded $certPath $port $sftpTarget $destination $fileName $hostKey
 
             if ($remoteVerified) {
-                Log "SFTP> Upload verified by remote listing despite exit code $exitCode"
+                Log "SFTP> Upload verified by remote listing despite exit code $exitCode" "WARN"
                 return $true
             }
 
-            Log "SFTP> Upload failed (exit code $exitCode)"
+            Log "SFTP> Upload failed (exit code $exitCode)" "ERROR"
             return $false
         }
 
         if ($exitCode -ne 0) {
-            Log "SFTP> Upload succeeded per transfer log despite exit code $exitCode"
+            Log "SFTP> Upload succeeded per transfer log despite exit code $exitCode" "WARN"
         }
 
         return $true
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $false
     }
     finally {
@@ -625,7 +631,7 @@ Function SendDirectoryBySFTP
     $files = Get-ChildItem -Path $sourceDirectory -File
 
     if ($files.Count -eq 0) {
-        Log "No files found in SFTP source directory: $sourceDirectory"
+        Log "No files found in SFTP source directory: $sourceDirectory" "WARN"
         return $true
     }
 
@@ -646,7 +652,7 @@ Function SendDirectoryBySFTP
             Log "Moved to backup: $backupPath"
         }
         else {
-            Log "Fail upload: $($file.FullName)"
+            Log "Fail upload: $($file.FullName)" "ERROR"
             $allSucceeded = $false
         }
     }
@@ -726,14 +732,14 @@ Function GetBatchParmValue
     }
 
     if (-not (Test-SqlResultHasRows $result)) {
-        Log "Batch parameter [$CtrlKey] not found for job [$JobName] in SYS_BATCH_PARM_VW or SYS_BATCH_PARM_TBL."
+        Log "Batch parameter [$CtrlKey] not found for job [$JobName] in SYS_BATCH_PARM_VW or SYS_BATCH_PARM_TBL." "WARN"
         return $null
     }
 
     $value = Get-SqlResultScalar $result
 
     if ($null -eq $value -or $value -eq [System.DBNull]::Value) {
-        Log "Batch parameter [$CtrlKey] for job [$JobName] is empty."
+        Log "Batch parameter [$CtrlKey] for job [$JobName] is empty." "WARN"
         return $null
     }
 
@@ -773,14 +779,14 @@ Function IsActiveJob
         # ENABLE is the primary switch for the batch job; status and owner are
         # checked only after the job is explicitly enabled.
         if ($enabled -ne "Y") {
-            Log "Job [$JobName] is not enabled. ENABLE=[$enabled]"
+            Log "Job [$JobName] is not enabled. ENABLE=[$enabled]" "WARN"
             return $false
         }
 
         $status = GetBatchStatus $JobName
 
         if ($status -eq "D" -or $status -eq "S") {
-            Log "Job [$JobName] has inactive status [$status]."
+            Log "Job [$JobName] has inactive status [$status]." "WARN"
             return $false
         }
 
@@ -791,7 +797,7 @@ Function IsActiveJob
         return $true
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $null
     }
 }
@@ -811,11 +817,11 @@ Function IsJobOwner
             return $true
         }
 
-        Log "Host not match. Host: $env:COMPUTERNAME  Owner: $owner"
+        Log "Host not match. Host: $env:COMPUTERNAME  Owner: $owner" "WARN"
         return $false
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $null
     }
 }
@@ -840,7 +846,7 @@ Function GetBatchStatus
         return $returnValue
     }
     catch {
-        Log $_.Exception.Message
+        Log $_.Exception.Message "ERROR"
         return $null
     }
 }

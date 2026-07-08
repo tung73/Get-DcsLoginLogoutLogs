@@ -9,6 +9,24 @@ BeforeAll {
     . (Join-Path $scriptRoot 'util.ps1')
 }
 
+Describe 'Log' {
+    It 'writes INFO level by default' {
+        $global:logFile = Join-Path $TestDrive 'default-level.log'
+
+        Log 'default level message'
+
+        Get-Content -Path $global:logFile | Select-Object -Last 1 | Should -Match '^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[INFO\] default level message$'
+    }
+
+    It 'writes explicit ERROR level' {
+        $global:logFile = Join-Path $TestDrive 'explicit-level.log'
+
+        Log 'explicit level message' 'ERROR'
+
+        Get-Content -Path $global:logFile | Select-Object -Last 1 | Should -Match '^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[ERROR\] explicit level message$'
+    }
+}
+
 Describe 'Invoke-Psftp' {
     It 'captures native command output and non-zero exit code without throwing' {
         $originalProgram = $global:SFTPProgram

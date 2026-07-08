@@ -136,6 +136,24 @@ pwsh -File .\BAD006.ps1
 
 On the production Windows host, it is normally run by the batch scheduler.
 
+## Logging
+
+Log lines include a timestamp and level:
+
+```text
+[2026-07-08 09:50:00] [INFO] BAD006 completed
+[2026-07-08 09:50:00] [ERROR] One or more files failed to upload by SFTP.
+```
+
+Levels used by BAD006:
+
+| Level | Meaning |
+| --- | --- |
+| `INFO` | Normal job progress |
+| `WARN` | Non-fatal abnormal condition or fallback behavior |
+| `ERROR` | Failure that causes a failed operation or non-zero exit |
+| `DEBUG` | Diagnostic details such as loaded paths and raw SFTP output |
+
 ## Tests and validation
 
 Run Pester tests:

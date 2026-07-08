@@ -67,11 +67,11 @@ try {
     EnsureDirectory $SFTPBackupDirectory
 
     Log "$me start running"
-    Log "Loaded config: $configPath"
-    Log "Loaded util: $utilPath"
+    Log "Loaded config: $configPath" "DEBUG"
+    Log "Loaded util: $utilPath" "DEBUG"
 
     if ((IsActiveJob $jobName) -ne $true) {
-        Log "Job [$jobName] is inactive. Script [$me] is terminated."
+        Log "Job [$jobName] is inactive. Script [$me] is terminated." "WARN"
         return 0
     }
 
@@ -80,7 +80,7 @@ try {
     # Empty dates intentionally skip export generation but still allow the SFTP
     # step to send any files that are already waiting in the source directory.
     if ($skipGenerate) {
-        Log "FromDate or ToDate is empty. Skipping file generation."
+        Log "FromDate or ToDate is empty. Skipping file generation." "WARN"
     }
     else {
         $fromDate = ParseConfigDate $FromDate "FromDate"
@@ -185,8 +185,8 @@ ORDER BY [Login/out date], USER_ID, [Action]
         $SFTPHostKey
 
     if ($sendResult -ne $true) {
-        Log "One or more files failed to upload by SFTP."
-        Log "$me completed with SFTP upload errors"
+        Log "One or more files failed to upload by SFTP." "ERROR"
+        Log "$me completed with SFTP upload errors" "ERROR"
         return 1
     }
 
@@ -194,6 +194,6 @@ ORDER BY [Login/out date], USER_ID, [Action]
     return 0
 }
 catch {
-    Log $_.Exception.Message
+    Log $_.Exception.Message "ERROR"
     return 1
 }
